@@ -1,0 +1,72 @@
+@startuml scoring_strategy_class_diagram
+skinparam componentStyle rectangle
+skinparam classAttributeIconSize 0
+
+title Class Diagram - Scoring Strategy (SOLID / Layered Architecture)
+
+' ==================== LAYER 2: BUSINESS LOGIC LAYER ====================
+package "Business Logic Layer" #LightCyan {
+    
+    class TestService <<service>> {
+        -scoringFactory: ScoringFactory
+        +processTestScoring(answers: array, settings: TestSettings): ScoreResult
+    }
+
+    ' --- FACTORY PATTERN ---
+    class ScoringFactory <<factory>> {
+        +createStrategy(settings: TestSettings): IScoringStrategy
+    }
+
+    ' --- STRATEGY PATTERN ---
+    interface IScoringStrategy <<strategy interface>> {
+        +calculateScore(answers: array): ScoreResult
+    }
+
+    class McqStrategy <<strategy>> {
+        +calculateScore(answers: array): ScoreResult
+    }
+
+    class FillBlankStrategy <<strategy>> {
+        +calculateScore(answers: array): ScoreResult
+    }
+
+    class MatchingStrategy <<strategy>> {
+        +calculateScore(answers: array): ScoreResult
+    }
+}
+
+' ==================== LAYER 4: DATA TRANSFER OBJECTS (DTO) ====================
+package "Data Transfer Objects (DTO)" #Lavender {
+    class TestSettings <<dto>> {
+        +testId: int
+        +scoringType: String
+        +passingScore: float
+    }
+
+    class ScoreResult <<dto>> {
+        +rawScore: float
+        +percentage: float
+        +isPassed: bool
+    }
+}
+
+' ==================== RELATIONSHIPS & DEPENDENCIES ====================
+' Service uses Factory and receives DTOs
+TestService --> ScoringFactory : requests strategy from
+TestService ..> TestSettings : reads
+TestService ..> ScoreResult : returns
+
+' Factory instantiates and returns the Strategy Interface
+ScoringFactory ..> IScoringStrategy : creates based on settings
+ScoringFactory ..> TestSettings : inspects type
+
+' Strategies implement the common contract Interface
+McqStrategy .up.|> IScoringStrategy : implements
+FillBlankStrategy .up.|> IScoringStrategy : implements
+MatchingStrategy .up.|> IScoringStrategy : implements
+
+' Service delegates execution to the abstract Interface
+TestService ..> IScoringStrategy : delegates calculation to
+IScoringStrategy ..> ScoreResult : produces
+
+@enduml

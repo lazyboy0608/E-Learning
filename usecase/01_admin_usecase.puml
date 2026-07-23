@@ -1,0 +1,32 @@
+@startuml admin_usecase
+title Use Case Diagram - Admin System Management
+
+left to right direction
+
+actor Admin
+
+rectangle "E-Learning System" {
+    ' Admin use cases
+    (Manage Users) as ManageUsers
+    (Create User) as CreateUser
+    (Update User) as UpdateUser
+    (Delete User) as DeleteUser
+    (View User List) as ViewUsers
+    (Search User) as SearchUser
+    
+    (Assign Roles) as AssignRoles
+    (View System Overview) as SystemOverview
+    
+    ' Include relationships
+    ManageUsers --> CreateUser
+    ManageUsers --> UpdateUser
+    ManageUsers --> DeleteUser
+    ManageUsers --> ViewUsers
+    ManageUsers --> SearchUser
+}
+
+Admin --> ManageUsers
+Admin --> AssignRoles
+Admin --> SystemOverview
+
+@enduml

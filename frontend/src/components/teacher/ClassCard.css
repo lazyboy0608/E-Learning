@@ -1,0 +1,131 @@
+/* ClassCard Component Styles */
+.class-card {
+  display: flex;
+  flex-direction: column;
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  overflow: hidden;
+  transition: all 0.3s ease;
+  border: 1px solid #f1f5f9;
+}
+
+.class-card:hover {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  transform: translateY(-2px);
+}
+
+.class-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem;
+  color: white;
+  min-height: 120px;
+}
+
+.class-card-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.class-card-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin: 0;
+  color: white;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.class-card-teacher {
+  font-size: 0.875rem;
+  margin: 0.5rem 0 0 0;
+  color: rgba(255, 255, 255, 0.9);
+  opacity: 0.9;
+}
+
+.class-card-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 50px;
+  height: 50px;
+  background-color: rgba(255, 255, 255, 0.25);
+  border-radius: 8px;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: white;
+  margin-left: 1rem;
+  flex-shrink: 0;
+}
+
+.class-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0.75rem 1rem;
+  background-color: #f9fafb;
+  border-top: 1px solid #f1f5f9;
+  position: relative;
+}
+
+.class-card-menu-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background-color: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #6b7280;
+  font-size: 1.25rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.class-card-menu-btn:hover {
+  background-color: #e5e7eb;
+  color: #1f2937;
+}
+
+.class-card-menu-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+  min-width: 160px;
+  overflow: hidden;
+  margin-top: 0.25rem;
+}
+
+.class-card-menu-dropdown button {
+  display: block;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: none;
+  border: none;
+  text-align: left;
+  color: #374151;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.class-card-menu-dropdown button:hover {
+  background-color: #f3f4f6;
+  color: #1f2937;
+}
+
+.class-card-menu-dropdown button:not(:last-child) {
+  border-bottom: 1px solid #f1f5f9;
+}

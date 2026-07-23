@@ -1,0 +1,31 @@
+@startuml admin_create_question_flow
+title Sequence Diagram - Teacher Create Question
+
+actor Teacher
+boundary "CreateQuestionPage" as UI <<boundary>>
+control QuestionController
+control QuestionRequest
+control QuestionService
+control QuestionRepository
+database DB
+
+' ===== Flow bắt đầu =====
+Teacher -> UI: Gửi request tạo câu hỏi
+UI -> QuestionController: Gửi request tạo câu hỏi
+
+QuestionController -> QuestionRequest: Validate dữ liệu
+
+alt Dữ liệu không hợp lệ
+    QuestionRequest --> QuestionController: Error
+    QuestionController --> Teacher: Thông báo lỗi
+else Hợp lệ
+    QuestionController -> QuestionService: Create question
+    QuestionService -> QuestionRepository: Insert question
+    QuestionRepository -> DB: INSERT question
+    DB --> QuestionRepository: OK
+    QuestionRepository --> QuestionService: Question created
+    QuestionService --> QuestionController: Success
+    QuestionController --> UI: Tạo thành công
+end
+
+@enduml

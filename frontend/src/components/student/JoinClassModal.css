@@ -1,0 +1,225 @@
+.join-class-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+  padding: 20px;
+}
+
+.join-class-modal {
+  background: white;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+}
+
+.join-class-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px 10px;
+}
+
+.join-class-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.join-class-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: #f3f4f6;
+  color: #4b5563;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.join-class-close:hover {
+  background: #e5e7eb;
+  color: #111827;
+}
+
+.join-class-subtitle {
+  margin: 0 22px 14px;
+  color: #6b7280;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.join-class-input {
+  margin: 0 22px 14px;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 14px;
+  outline: none;
+  color: #111827;
+  background: #fff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.join-class-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.12);
+}
+
+.join-class-results {
+  margin: 0 22px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.join-class-status {
+  padding: 12px 0;
+  color: #6b7280;
+  font-size: 14px;
+  text-align: center;
+}
+
+.join-class-result-item {
+  padding: 12px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.join-class-result-item:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+  transform: translateY(1px);
+}
+
+.join-class-result-item.selected {
+  background: #eff6ff;
+  border-color: #3b82f6;
+}
+
+.join-class-result-code {
+  font-weight: 700;
+  color: #111827;
+  font-size: 14px;
+}
+
+.join-class-result-name {
+  color: #374151;
+  font-size: 14px;
+}
+
+.join-class-result-teacher {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.join-class-message {
+  margin: 0 22px 12px;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.join-class-message.error {
+  color: #b91c1c;
+}
+
+.join-class-message.success {
+  color: #047857;
+}
+
+.join-class-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 22px 18px;
+}
+
+.join-class-button {
+  min-width: 110px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.join-class-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.join-class-button.primary {
+  background: #111827;
+  color: white;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.join-class-button.primary:hover:not(:disabled) {
+  background: #000000;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18);
+}
+
+.join-class-button.secondary {
+  background: white;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+.join-class-button.secondary:hover:not(:disabled) {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.join-class-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  background: white;
+  color: #111827;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.join-class-trigger:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+  color: #000000;
+  transform: translateY(1px);
+}
+
+.dashboard-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}

@@ -1,0 +1,49 @@
+@startuml student_usecase
+title Use Case Diagram - Student Learning Activities
+
+left to right direction
+
+actor Student
+
+rectangle "E-Learning System" {
+    ' Practice
+    (Practice) as Practice
+    (Get Question) as GetQ
+    (Submit Answer) as SubmitA
+    (View Result) as ViewResult
+    (View Explanation) as ViewExplain
+    
+    Practice --> GetQ
+    Practice --> SubmitA
+    Practice --> ViewResult
+    Practice --> ViewExplain
+    
+    ' Test
+    (Take Test) as TakeTest
+    (Enter Test Code) as EnterCode
+    (Start Test) as StartTest
+    (Submit Test) as SubmitTest
+    (View Test Result) as ViewTestResult
+    
+    TakeTest --> EnterCode
+    TakeTest --> StartTest
+    TakeTest --> SubmitTest
+    TakeTest --> ViewTestResult
+    
+    ' Class
+    (Join Class) as JoinClass
+    (View Materials) as ViewMat
+    (View Class Progress) as ViewCProgress
+    
+    ' Progress
+    (View Progress) as ViewProgress
+    (View Learning History) as ViewHistory
+}
+
+Student --> Practice
+Student --> TakeTest
+Student --> JoinClass
+Student --> ViewProgress
+Student --> ViewHistory
+
+@enduml

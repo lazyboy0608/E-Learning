@@ -1,0 +1,109 @@
+@startuml practice_management_class_diagram
+skinparam componentStyle rectangle
+skinparam classAttributeIconSize 0
+
+title Class Diagram - Practice Management (SOLID / Layered Architecture)
+
+' ==================== LAYER 1: PRESENTATION LAYER ====================
+package "Presentation Layer" #LightBlue {
+    class PracticeScreen <<boundary>> {
+        +questionsList: Array
+        +renderQuestions(): void
+        +handleAnswerSubmit(): void
+    }
+
+    class PracticeController <<controller>> {
+        -practiceService: IPracticeService
+        +getPractice(userId: int, params: array): JsonResponse
+        +submitAnswer(request: AnswerRequest): JsonResponse
+    }
+}
+
+' ==================== LAYER 2: BUSINESS LOGIC LAYER ====================
+package "Business Logic Layer" #LightCyan {
+    interface IPracticeService <<service interface>> {
+        +getPracticeQuestions(userId: int, params: array): Collection
+        +recordPracticeAnswer(userId: int, questionId: int, answer: String): QuestionProgress
+    }
+
+    class PracticeService <<service>> {
+        -questionRepository: IQuestionRepository
+        -progressRepository: IProgressRepository
+        +getPracticeQuestions(userId: int, params: array): Collection
+        +recordPracticeAnswer(userId: int, questionId: int, answer: String): QuestionProgress
+    }
+}
+
+' ==================== LAYER 3: DATA ACCESS LAYER ====================
+package "Data Access Layer" #LightGreen {
+    interface IQuestionRepository <<repository interface>> {
+        +findForPractice(userId: int, limit: int): Collection
+    }
+
+    class QuestionRepository <<repository>> {
+        +findForPractice(userId: int, limit: int): Collection
+    }
+
+    interface IProgressRepository <<repository interface>> {
+        +upsertProgress(userId: int, questionId: int, answer: String): QuestionProgress
+    }
+
+    class ProgressRepository <<repository>> {
+        +upsertProgress(userId: int, questionId: int, answer: String): QuestionProgress
+    }
+}
+
+' ==================== LAYER 4: DATA TRANSFER OBJECTS (DTO) ====================
+package "Data Transfer Objects (DTO)" #Lavender {
+    class AnswerRequest <<dto>> {
+        +userId: int
+        +questionId: int
+        +answer: String
+    }
+}
+
+' ==================== LAYER 5: DOMAIN ENTITIES ====================
+package "Domain Entities" #Bisque {
+    class Question <<entity>> {
+        -id: int
+        -content: string
+        -options: array
+        -correct_answer: string
+        +progressions(): HasMany
+    }
+
+    class QuestionProgress <<entity>> {
+        -id: int
+        -user_id: int
+        -question_id: int
+        -last_answer: string
+        -is_correct: bool
+        -updated_at: DateTime
+    }
+}
+
+' ==================== RELATIONSHIPS & DEPENDENCIES ====================
+' UI to Controller & DTO
+PracticeScreen ..> AnswerRequest : constructs
+PracticeScreen --> PracticeController : sends data to
+
+' Controller to Service & DTOs
+PracticeController --> IPracticeService : uses
+PracticeController ..> AnswerRequest : receives
+
+' Service implements Interface & depends on Repositories
+PracticeService .up.|> IPracticeService : implements
+PracticeService --> IQuestionRepository : uses
+PracticeService --> IProgressRepository : uses
+
+' Repositories implement Interfaces & interact with Entities
+QuestionRepository .up.|> IQuestionRepository : implements
+QuestionRepository --> Question : retrieves
+
+ProgressRepository .up.|> IProgressRepository : implements
+ProgressRepository --> QuestionProgress : saves/updates (upsert)
+
+' Entity Relationships
+Question "1" *-- "0..*" QuestionProgress : tracks
+
+@enduml

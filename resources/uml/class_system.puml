@@ -1,0 +1,112 @@
+@startuml classroom_management_class_diagram
+skinparam componentStyle rectangle
+skinparam classAttributeIconSize 0
+
+title Class Diagram - Classroom Management (SOLID / Layered Architecture)
+
+' ==================== LAYER 1: PRESENTATION LAYER ====================
+package "Presentation Layer" #LightBlue {
+    class ClassListPage <<boundary>> {
+        +classesList: Array
+        +renderList(): void
+        +handleEnrollStudent(): void
+    }
+
+    class ClassController <<controller>> {
+        -classService: IClassService
+        +getClasses(): JsonResponse
+        +addStudent(classId: int, request: AddStudentRequest): JsonResponse
+    }
+}
+
+' ==================== LAYER 2: BUSINESS LOGIC LAYER ====================
+package "Business Logic Layer" #LightCyan {
+    interface IClassService <<service interface>> {
+        +listClasses(): Collection
+        +addStudentToClass(classId: int, studentData: AddStudentRequest): bool
+    }
+
+    class ClassService <<service>> {
+        -classRepository: IClassRepository
+        -classUserRepository: IClassUserRepository
+        +listClasses(): Collection
+        +addStudentToClass(classId: int, studentData: AddStudentRequest): bool
+    }
+}
+
+' ==================== LAYER 3: DATA ACCESS LAYER ====================
+package "Data Access Layer" #LightGreen {
+    interface IClassRepository <<repository interface>> {
+        +findAll(): Collection
+    }
+
+    class ClassRepository <<repository>> {
+        +findAll(): Collection
+    }
+
+    interface IClassUserRepository <<repository interface>> {
+        +createEnrollment(classId: int, studentId: int): ClassUser
+    }
+
+    class ClassUserRepository <<repository>> {
+        +createEnrollment(classId: int, studentId: int): ClassUser
+    }
+}
+
+' ==================== LAYER 4: DATA TRANSFER OBJECTS (DTO) ====================
+package "Data Transfer Objects (DTO)" #Lavender {
+    class AddStudentRequest <<dto>> {
+        +student_id: int
+    }
+}
+
+' ==================== LAYER 5: DOMAIN ENTITIES ====================
+package "Domain Entities" #Bisque {
+    class ClassRoom <<entity>> {
+        -id: int
+        -name: string
+        -description: string
+        +students(): BelongsToMany
+    }
+
+    class User <<entity>> {
+        -id: int
+        -name: string
+        -email: string
+        -role: string
+    }
+
+    class ClassUser <<entity>> {
+        -id: int
+        -class_id: int
+        -user_id: int
+        -enrolled_at: DateTime
+    }
+}
+
+' ==================== RELATIONSHIPS & DEPENDENCIES ====================
+' UI to Controller & DTO
+ClassListPage ..> AddStudentRequest : constructs
+ClassListPage --> ClassController : sends data to
+
+' Controller to Service & DTOs
+ClassController --> IClassService : uses
+ClassController ..> AddStudentRequest : receives
+
+' Service implements Interface & depends on Repositories
+ClassService .up.|> IClassService : implements
+ClassService --> IClassRepository : uses
+ClassService --> IClassUserRepository : uses
+
+' Repositories implement Interfaces & interact with Entities
+ClassRepository .up.|> IClassRepository : implements
+ClassRepository --> ClassRoom : retrieves
+
+ClassUserRepository .up.|> IClassUserRepository : implements
+ClassUserRepository --> ClassUser : creates
+
+' Entity Relationships (Many-to-Many Breakdown)
+ClassRoom "1" *-- "0..*" ClassUser : has
+User "1" *-- "0..*" ClassUser : enrolls
+
+@enduml

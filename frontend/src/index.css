@@ -1,0 +1,13 @@
+/* 1. Nhúng font chữ hệ thống luôn ở dòng đầu tiên */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* 2. Nhúng lõi cấu trúc Tailwind CSS v4 */
+@import "tailwindcss";
+
+/* 3. Toàn bộ CSS viết tay hoặc cấu hình tùy biến khác */
+@layer base {
+  body {
+    margin: 0;
+    font-family: 'Inter', sans-serif;
+  }
+}

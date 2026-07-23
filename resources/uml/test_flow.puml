@@ -1,0 +1,140 @@
+@startuml test_flow_class_diagram
+skinparam componentStyle rectangle
+skinparam classAttributeIconSize 0
+
+title Class Diagram - Test Flow Management (SOLID / Layered Architecture)
+
+' ==================== LAYER 1: PRESENTATION LAYER ====================
+package "Presentation Layer" #LightBlue {
+    class TestTakePage <<boundary>> {
+        +timer: int
+        +questionsList: Array
+        +renderTestUI(): void
+        +handleStartTest(): void
+        +handleSubmitTest(): void
+    }
+
+    class TestController <<controller>> {
+        -testService: ITestService
+        +startTest(id: int, request: StartTestRequest): JsonResponse
+        +submitTest(id: int, request: SubmitTestRequest): JsonResponse
+    }
+}
+
+' ==================== LAYER 2: BUSINESS LOGIC LAYER ====================
+package "Business Logic Layer" #LightCyan {
+    interface ITestService <<service interface>> {
+        +startTest(request: StartTestRequest): StartAttemptResponse
+        +submitTest(request: SubmitTestRequest): SubmissionResult
+    }
+
+    class TestService <<service>> {
+        -attemptRepository: ITestAttemptRepository
+        -scoringFactory: ScoringFactory
+        +startTest(request: StartTestRequest): StartAttemptResponse
+        +submitTest(request: SubmitTestRequest): SubmissionResult
+    }
+
+    ' --- FACTORY & STRATEGY PATTERNS ---
+    class ScoringFactory <<factory>> {
+        +getScoringStrategy(settings: TestSettings): IScoringStrategy
+    }
+
+    interface IScoringStrategy <<strategy interface>> {
+        +calculateScore(answers: array, metadata: array): ScoreResult
+    }
+}
+
+' ==================== LAYER 3: DATA ACCESS LAYER ====================
+package "Data Access Layer" #LightGreen {
+    interface ITestAttemptRepository <<repository interface>> {
+        +createAttempt(userId: int, testId: int): TestAttempt
+        +saveAnswers(attemptId: int, answers: array): bool
+        +updateAttemptScore(attemptId: int, score: ScoreResult): TestAttempt
+    }
+
+    class TestAttemptRepository <<repository>> {
+        +createAttempt(userId: int, testId: int): TestAttempt
+        +saveAnswers(attemptId: int, answers: array): bool
+        +updateAttemptScore(attemptId: int, score: ScoreResult): TestAttempt
+    }
+}
+
+' ==================== LAYER 4: DATA TRANSFER OBJECTS (DTO) ====================
+package "Data Transfer Objects (DTO)" #Lavender {
+    class StartTestRequest <<dto>> {
+        +userId: int
+        +testId: int
+    }
+
+    class StartAttemptResponse <<dto>> {
+        +attemptId: int
+        +timer: int
+    }
+
+    class SubmitTestRequest <<dto>> {
+        +attemptId: int
+        +answers: array
+    }
+
+    class ScoreResult <<dto>> {
+        +rawScore: float
+        +details: array
+    }
+
+    class SubmissionResult <<dto>> {
+        +score: float
+        +feedback: String
+        +details: array
+    }
+    
+    class TestSettings <<dto>> {
+        +testId: int
+        +scoringType: String
+    }
+}
+
+' ==================== LAYER 5: DOMAIN ENTITIES ====================
+package "Domain Entities" #Bisque {
+    class TestAttempt <<entity>> {
+        -id: int
+        -user_id: int
+        -test_id: int
+        -score: float
+        -status: string
+        -started_at: DateTime
+        -submitted_at: DateTime
+    }
+}
+
+' ==================== RELATIONSHIPS & DEPENDENCIES ====================
+' UI to Controller & DTOs
+TestTakePage ..> StartTestRequest : constructs
+TestTakePage ..> SubmitTestRequest : constructs
+TestTakePage --> TestController : sends data to
+
+' Controller to Service & DTOs
+TestController --> ITestService : uses
+TestController ..> StartTestRequest : receives
+TestController ..> SubmitTestRequest : receives
+TestController ..> StartAttemptResponse : returns
+TestController ..> SubmissionResult : returns
+
+' Service implements Interface & depends on Repositories / Factory
+TestService .up.|> ITestService : implements
+TestService --> ITestAttemptRepository : uses
+TestService --> ScoringFactory : uses
+TestService ..> StartAttemptResponse : constructs
+TestService ..> SubmissionResult : constructs
+
+' Factory & Strategy Dependency
+ScoringFactory ..> IScoringStrategy : creates based on TestSettings
+TestService ..> IScoringStrategy : delegates calculation to
+IScoringStrategy ..> ScoreResult : returns
+
+' Repositories implement Interfaces & interact with Entities
+TestAttemptRepository .up.|> ITestAttemptRepository : implements
+TestAttemptRepository --> TestAttempt : manages
+TestAttemptRepository ..> ScoreResult : receives to update
+
+@enduml

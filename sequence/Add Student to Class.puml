@@ -1,0 +1,27 @@
+@startuml add student to class
+title Teacher Add Student To Class — Sequence Diagram
+
+actor Teacher <<actor>>
+boundary "ManageClassPage" as UI <<boundary>>
+control "ClassController" as Controller <<control>>
+control "ClassService" as Service <<control>>
+control "ClassRepository" as Repository <<control>>
+entity "Class" as ClassModel <<entity>>
+database "MySQL" as DB <<entity>>
+
+Teacher -> UI: Update class settings
+UI -> Controller: PUT /classes/{id}
+Controller -> Controller: validate(payload)
+alt validation fails
+	Controller --> UI: 422 ValidationErrors
+else
+	Controller -> Service: updateClass(id, payload)
+	Service -> Repository: update(id, payload)
+	Repository -> DB: UPDATE class
+	ClassModel --> Repository: OK
+	Repository --> Service: updatedClass
+	Service --> Controller: 200 OK
+	Controller --> UI: confirmation
+end
+
+@enduml

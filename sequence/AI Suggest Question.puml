@@ -1,0 +1,43 @@
+@startuml ai_suggest_question_sequence
+title Sequence Diagram - AI Suggest Question Based on History
+
+actor Student
+participant RecommendationController
+participant RecommendationService
+participant QuestionProgressRepository
+participant QuestionRepository
+database DB
+
+Student -> RecommendationController: getSuggestedQuestions(user_id)
+
+RecommendationController -> RecommendationService: suggestQuestions(user_id)
+
+' ===== Analyze History =====
+RecommendationService -> QuestionProgressRepository: getStudentHistory(user_id)
+QuestionProgressRepository -> DB: SELECT question_progress
+DB --> QuestionProgressRepository: history
+QuestionProgressRepository --> RecommendationService: history
+
+RecommendationService -> RecommendationService: analyzePatterns(history)
+' Tính: weak topics, frequently wrong, learning pace
+
+' ===== Generate Suggestions =====
+RecommendationService -> RecommendationService: identifyWeakTopics()
+' Output: list of topics with low score
+
+loop for each weak topic
+    RecommendationService -> QuestionRepository: searchByTopic(topic, difficulty)
+    QuestionRepository -> DB: SELECT questions WHERE topic = ? ORDER BY difficulty
+    DB --> QuestionRepository: questions
+    QuestionRepository --> RecommendationService: questions
+end
+
+RecommendationService -> RecommendationService: rankQuestions(all_questions)
+' Xếp hạng dựa trên: độ khó, mức độ liên quan, tần suất sai
+
+RecommendationService -> RecommendationService: selectTopN(ranked_questions, 5)
+
+RecommendationService --> RecommendationController: suggested_questions
+RecommendationController --> Student: {questions, recommendation_reason}
+
+@enduml

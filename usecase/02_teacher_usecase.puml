@@ -1,0 +1,79 @@
+@startuml teacher_usecase
+title Use Case Diagram - Teacher Content Management
+
+left to right direction
+
+actor Teacher
+
+rectangle "E-Learning System" {
+    ' Question Management
+    (Manage Questions) as ManageQ
+    (Create Question) as CreateQ
+    (Update Question) as UpdateQ
+    (Delete Question) as DeleteQ
+    (View Question List) as ViewQList
+    (Search Question) as SearchQ
+    (Filter Question) as FilterQ
+    
+    ManageQ --> CreateQ
+    ManageQ --> UpdateQ
+    ManageQ --> DeleteQ
+    ManageQ --> ViewQList
+    ManageQ --> SearchQ
+    ManageQ --> FilterQ
+    
+    ' Test Management
+    (Manage Tests) as ManageT
+    (Create Test) as CreateT
+    (Update Test) as UpdateT
+    (Delete Test) as DeleteT
+    (View Test List) as ViewTList
+    (Search Test) as SearchT
+    (Add Questions to Test) as AddQToTest
+    (Assign Test to Class) as AssignTestClass
+    (Generate Test Code) as GenTestCode
+    
+    ManageT --> CreateT
+    ManageT --> UpdateT
+    ManageT --> DeleteT
+    ManageT --> ViewTList
+    ManageT --> SearchT
+    ManageT --> AddQToTest
+    ManageT --> AssignTestClass
+    ManageT --> GenTestCode
+    
+    ' Class Management
+    (Manage Classes) as ManageC
+    (Create Class) as CreateC
+    (Add Student) as AddStudent
+    (Remove Student) as RemoveStudent
+    (Upload Material) as UploadMat
+    (Assign Test) as AssignTest
+    (View Class Detail) as ViewCDetail
+    (Search Class) as SearchC
+    
+    ManageC --> CreateC
+    ManageC --> AddStudent
+    ManageC --> RemoveStudent
+    ManageC --> UploadMat
+    ManageC --> AssignTest
+    ManageC --> ViewCDetail
+    ManageC --> SearchC
+    
+    ' Analytics
+    (View Student Results) as ViewResults
+    (View Class Performance) as ViewPerf
+    (Search Student Result) as SearchResult
+    
+    (Analytics) as Analytics
+    Analytics --> ViewResults
+    Analytics --> ViewPerf
+    Analytics --> SearchResult
+}
+
+Teacher --> ManageQ
+Teacher --> ManageT
+Teacher --> ManageC
+Teacher --> Analytics
+
+@enduml

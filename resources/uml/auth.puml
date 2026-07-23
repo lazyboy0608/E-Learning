@@ -1,0 +1,92 @@
+@startuml authentication_class_diagram
+skinparam componentStyle rectangle
+skinparam classAttributeIconSize 0
+
+title Class Diagram - Authentication (SOLID / Layered Architecture)
+
+' ==================== LAYER 1: PRESENTATION LAYER ====================
+package "Presentation Layer" #LightBlue {
+    class LoginPage <<boundary>> {
+        +email: String
+        +password: String
+        +handleSubmit(): void
+    }
+
+    class AuthController <<controller>> {
+        -authService: IAuthService
+        +login(request: LoginRequest): JsonResponse
+    }
+}
+
+' ==================== LAYER 2: BUSINESS LOGIC LAYER ====================
+package "Business Logic Layer" #LightCyan {
+    interface IAuthService <<service interface>> {
+        +login(request: LoginRequest): LoginResponse
+    }
+
+    class AuthService <<service>> {
+        -userRepository: IUserRepository
+        +login(request: LoginRequest): LoginResponse
+        -verifyPassword(raw: String, hashed: String): bool
+        -generateToken(user: User): String
+    }
+}
+
+' ==================== LAYER 3: DATA ACCESS LAYER ====================
+package "Data Access Layer" #LightGreen {
+    interface IUserRepository <<repository interface>> {
+        +findByEmail(email: String): User
+    }
+
+    class UserRepository <<repository>> {
+        +findByEmail(email: String): User
+    }
+}
+
+' ==================== LAYER 4: DATA TRANSFER OBJECTS (DTO) ====================
+package "Data Transfer Objects (DTO)" #Lavender {
+    class LoginRequest <<dto>> {
+        +email: String
+        +password: String
+    }
+
+    class LoginResponse <<dto>> {
+        +token: String
+        +user: User
+    }
+}
+
+' ==================== LAYER 5: DOMAIN ENTITIES ====================
+package "Domain Entities" #Bisque {
+    class User <<entity>> {
+        -id: int
+        -email: string
+        -password: string
+        -role: string
+        +getAuthPassword(): string
+    }
+}
+
+' ==================== RELATIONSHIPS & DEPENDENCIES ====================
+' UI to Controller
+LoginPage ..> LoginRequest : constructs
+LoginPage --> AuthController : sends data to
+
+' Controller to Service & DTOs
+AuthController --> IAuthService : uses
+AuthController ..> LoginRequest : receives
+AuthController ..> LoginResponse : returns
+
+' Service implements Interface & depends on Repositories
+AuthService .up.|> IAuthService : implements
+AuthService --> IUserRepository : uses
+AuthService ..> LoginResponse : constructs
+
+' Repository implements Interface & interacts with Database/Entity
+UserRepository .up.|> IUserRepository : implements
+UserRepository --> User : retrieves
+
+' DTO uses Entity
+LoginResponse "1" *-- "1" User : contains
+
+@enduml
