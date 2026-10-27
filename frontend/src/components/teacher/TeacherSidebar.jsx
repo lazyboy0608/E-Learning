@@ -42,7 +42,7 @@ const TeacherSidebar = ({ isOpen }) => {
         <div className="teacher-logo-icon">
           <FiBook size={20} />
         </div>
-        E-Learning
+        SmartEdu
       </div>
 
       {/* Navigation Menu */}

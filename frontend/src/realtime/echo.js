@@ -11,10 +11,6 @@ export function getEcho() {
     localStorage.getItem('auth_token') ||
     localStorage.getItem('token');
 
-  if (!token) {
-    return null;
-  }
-
   // Nếu token thay đổi (user khác đăng nhập), huỷ instance cũ
   // Tránh dùng token của user cũ đã bị revoke sau khi logout
   if (echoInstance && echoToken !== token) {
@@ -44,9 +40,11 @@ export function getEcho() {
 
     auth: {
       headers: {
-        Authorization: `Bearer ${token}`,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         Accept: 'application/json'
-      }
+      },
+      // Cho phép gửi HttpOnly Cookie kèm request xác thực private channel
+      withCredentials: true,
     }
   });
 

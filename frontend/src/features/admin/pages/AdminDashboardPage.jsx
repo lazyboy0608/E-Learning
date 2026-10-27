@@ -39,7 +39,7 @@ const AdminDashboardPage = () => {
       <div className="admin-section">
         <h3 className="admin-section-title">Overview</h3>
         <p className="admin-section-desc">
-          Here's what's happening with your e-learning platform today.
+          Tổng quan tình hình hoạt động của hệ thống SmartEdu hôm nay.
         </p>
 
         <div className="admin-stat-cards">

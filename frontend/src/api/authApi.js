@@ -7,12 +7,16 @@ export const authApi = {
       password,
       role,
     });
-
     return response.data;
   },
 
   register: async (data) => {
     const response = await apiClient.post('/register', data);
+    return response.data;
+  },
+
+  refreshToken: async () => {
+    const response = await apiClient.post('/refresh-token');
     return response.data;
   },
 

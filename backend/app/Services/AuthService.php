@@ -7,19 +7,25 @@ use Illuminate\Support\Facades\Hash;
 
 class AuthService
 {
-    public function login(string $email, string $password, string $role): array
+    public function __construct(
+        private readonly JwtService $jwtService
+    ) {}
+
+    public function login(string $email, string $password, string $role, ?string $ip = null, ?string $userAgent = null): array
     {
         $user = User::where('email', $email)->first();
 
         if (!$user || !Hash::check($password, $user->password) || $user->role !== $role) {
             return [
                 'success' => false,
-                'message' => 'Invalid credentials',
+                'message' => 'Thông tin đăng nhập không chính xác hoặc vai trò không hợp lệ.',
                 'status'  => 401,
             ];
         }
 
-        $token = $user->createToken('api-token')->plainTextToken;
+        // Sinh cặp token kép (AccessToken 15m + RefreshToken 7d)
+        $accessToken = $this->jwtService->generateAccessToken($user);
+        $refreshTokenData = $this->jwtService->generateRefreshToken($user, $ip, $userAgent);
 
         app(ActivityLogService::class)->log(
             'login',
@@ -29,24 +35,56 @@ class AuthService
         );
 
         return [
-            'success' => true,
-            'message' => 'Login successful',
-            'user'    => $this->formatUser($user),
-            'token'   => $token,
-            'status'  => 200,
+            'success'       => true,
+            'message'       => 'Đăng nhập thành công',
+            'user'          => $this->formatUser($user),
+            'access_token'  => $accessToken,
+            'refresh_token' => $refreshTokenData['token'],
+            'token'         => $accessToken, // Backward compatibility
+            'status'        => 200,
         ];
     }
 
-    public function logout(User $user): void
+    public function refreshToken(string $rawRefreshToken, ?string $ip = null, ?string $userAgent = null): array
     {
-        app(ActivityLogService::class)->log(
-            'logout',
-            User::class,
-            $user->id,
-            "User \"{$user->name}\" (ID: {$user->id}) logged out"
-        );
+        try {
+            $result = $this->jwtService->rotateRefreshToken($rawRefreshToken, $ip, $userAgent);
 
-        $user->tokens()->delete();
+            return [
+                'success'       => true,
+                'message'       => 'Làm mới token thành công',
+                'user'          => $this->formatUser($result['user']),
+                'access_token'  => $result['access_token'],
+                'refresh_token' => $result['refresh_token'],
+                'token'         => $result['access_token'],
+                'status'        => 200,
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'success'    => false,
+                'message'    => $e->getMessage(),
+                'error_code' => 'REFRESH_FAILED',
+                'status'     => 401,
+            ];
+        }
+    }
+
+    public function logout(?User $user, ?string $rawRefreshToken = null): void
+    {
+        if ($user) {
+            app(ActivityLogService::class)->log(
+                'logout',
+                User::class,
+                $user->id,
+                "User \"{$user->name}\" (ID: {$user->id}) logged out"
+            );
+        }
+
+        if ($rawRefreshToken) {
+            $this->jwtService->revokeRefreshToken($rawRefreshToken);
+        } elseif ($user) {
+            $this->jwtService->revokeAllUserTokens($user->id);
+        }
     }
 
     public function getCurrentUser(User $user): array
@@ -57,7 +95,7 @@ class AuthService
         ];
     }
 
-    public function register(array $data): array
+    public function register(array $data, ?string $ip = null, ?string $userAgent = null): array
     {
         $existingUser = User::where('email', $data['email'])
             ->orWhere('phone', $data['phone'])
@@ -86,7 +124,8 @@ class AuthService
             'role'     => $data['role'],
         ]);
 
-        $token = $user->createToken('api-token')->plainTextToken;
+        $accessToken = $this->jwtService->generateAccessToken($user);
+        $refreshTokenData = $this->jwtService->generateRefreshToken($user, $ip, $userAgent);
 
         app(ActivityLogService::class)->log(
             'register',
@@ -96,11 +135,13 @@ class AuthService
         );
 
         return [
-            'success' => true,
-            'message' => 'Đăng ký thành công.',
-            'user'    => $this->formatUser($user),
-            'token'   => $token,
-            'status'  => 201,
+            'success'       => true,
+            'message'       => 'Đăng ký thành công.',
+            'user'          => $this->formatUser($user),
+            'access_token'  => $accessToken,
+            'refresh_token' => $refreshTokenData['token'],
+            'token'         => $accessToken,
+            'status'        => 201,
         ];
     }
 

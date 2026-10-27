@@ -21,7 +21,7 @@ function RegisterRolePage() {
         <div className="hp-header-inner">
           <div className="hp-logo">
             <span className="hp-logo-icon">📚</span>
-            <span className="hp-logo-text">E-Learning</span>
+            <span className="hp-logo-text">SmartEdu</span>
           </div>
 
           <div className="hp-auth-btns" style={{ marginLeft: "auto" }}>
@@ -49,7 +49,7 @@ function RegisterRolePage() {
             <h1 className="auth-title">
               Tạo tài khoản
               <br />
-              E-learning
+              SmartEdu
             </h1>
             <p className="auth-subtitle">
               Chọn vai trò của bạn để bắt đầu đăng ký
@@ -86,10 +86,10 @@ function RegisterRolePage() {
                 Bắt đầu hành trình học tập của bạn
               </h2>
               <ul className="r1-visual-list">
-                <li>✅ Đăng ký miễn phí, học ngay hôm nay</li>
-                <li>✅ Hơn 500+ khóa học chất lượng</li>
-                <li>✅ Chứng chỉ được công nhận</li>
-                <li>✅ Học mọi lúc, mọi nơi</li>
+                <li>✅ Đăng ký nhanh chóng, sử dụng miễn phí</li>
+                <li>✅ Kho bài tập &amp; Đề thi chuẩn GDPT</li>
+                <li>✅ Học theo lộ trình từng khối lớp</li>
+                <li>✅ Kết nối trực tiếp cùng thầy cô giáo</li>
               </ul>
             </div>
           </div>

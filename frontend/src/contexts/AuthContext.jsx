@@ -31,24 +31,37 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  const initAuth = useCallback(() => {
+  // Khởi tạo phiên làm việc: Kiểm tra HttpOnly Cookie qua /api/me kết hợp cache UX
+  const initAuth = useCallback(async () => {
     try {
       const storedUser = localStorage.getItem(USER_KEY);
-      const token = localStorage.getItem(TOKEN_KEY);
+      if (storedUser) {
+        try {
+          const parsedUser = JSON.parse(storedUser);
+          setUser(parsedUser);
+          setIsAuthenticated(true);
+        } catch {
+          // Bỏ qua lỗi parse
+        }
+      }
 
-      if (storedUser && token) {
-        const parsedUser = JSON.parse(storedUser);
-        console.log("=== THÔNG TIN USER KHI KHỞI TẠO ===", parsedUser);
-        setUser(parsedUser);
+      // Xác minh phiên làm việc thực tế với backend qua HttpOnly Cookie
+      const response = await apiClient.get('/me');
+      if (response.data?.success && response.data?.data) {
+        const verifiedUser = response.data.data;
+        setUser(verifiedUser);
         setIsAuthenticated(true);
-      } else {
-        setUser(null);
-        setIsAuthenticated(false);
+        localStorage.setItem(USER_KEY, JSON.stringify(verifiedUser));
       }
     } catch (error) {
-      console.error('Error parsing stored user data:', error);
+      // Nếu 401 hoặc lỗi xác thực -> xóa sạch trạng thái đăng nhập
+      console.log('Chưa đăng nhập hoặc phiên làm việc đã kết thúc.');
       setUser(null);
       setIsAuthenticated(false);
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
     } finally {
       setLoading(false);
     }
@@ -79,11 +92,11 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password, role = 'teacher') => {
     try {
-      // Clear existing auth state completely before login
       clearAuthStorage();
       setUser(null);
       setIsAuthenticated(false);
 
+      // Gửi request login (Backend trả về 2 HttpOnly Cookies: access_token, refresh_token)
       const response = await apiClient.post('/login', {
         email,
         password,
@@ -91,19 +104,17 @@ export const AuthProvider = ({ children }) => {
       });
 
       const payload = response.data?.data || response.data;
-      const token = payload?.token || response.data?.token;
+      const token = payload?.token || payload?.access_token || response.data?.token;
       const userData = payload?.user || payload?.teacher || response.data?.user || response.data?.teacher || payload;
 
-      if (!token) {
-        throw new Error('Không tìm thấy Token trong dữ liệu Auth trả về');
+      if (token) {
+        localStorage.setItem(TOKEN_KEY, token);
+        localStorage.setItem('token', token);
+        apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       }
 
-      localStorage.setItem(TOKEN_KEY, token);
       localStorage.setItem(USER_KEY, JSON.stringify(userData));
-      localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(userData));
-
-      apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
       const actualRole = userData?.role || role;
 
@@ -123,7 +134,7 @@ export const AuthProvider = ({ children }) => {
       console.error('Login API error:', error);
       return {
         success: false,
-        message: error.response?.data?.message || error.message || 'Login failed',
+        message: error.response?.data?.message || error.message || 'Đăng nhập không thành công',
       };
     }
   };
@@ -134,10 +145,13 @@ export const AuthProvider = ({ children }) => {
 
       const response = await apiClient.post('/register', data);
       const payload = response.data?.data || response.data;
-      const token = payload?.token || response.data?.token;
+      const token = payload?.token || payload?.access_token || response.data?.token;
       const userData = payload?.user || payload?.teacher || response.data?.user || response.data?.teacher || payload;
 
-      localStorage.setItem(TOKEN_KEY, token);
+      if (token) {
+        localStorage.setItem(TOKEN_KEY, token);
+        localStorage.setItem('token', token);
+      }
       localStorage.setItem(USER_KEY, JSON.stringify(userData));
       
       setUser(userData);
@@ -149,28 +163,21 @@ export const AuthProvider = ({ children }) => {
       clearAuthStorage();
       return {
         success: false,
-        message: error.response?.data?.message || error.message || 'Registration failed',
+        message: error.response?.data?.message || error.message || 'Đăng ký không thành công',
       };
     }
   };
 
   const logout = async () => {
-    // Huỷ Echo instance trước để tránh dùng token cũ sau khi login lại
     disconnectEcho();
 
     try {
+      // Backend sẽ thu hồi token trong DB và xóa 2 cookies HttpOnly
       await apiClient.post('/logout');
     } catch (error) {
       console.error('Logout API error:', error);
     } finally {
-      localStorage.removeItem(TOKEN_KEY);
-      localStorage.removeItem(USER_KEY);
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-
-      setUser(null);
-      setIsAuthenticated(false);
-
+      clearAuthStorage();
       navigate('/login', { replace: true });
     }
   };

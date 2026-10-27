@@ -28,7 +28,7 @@ const AdminSidebar = () => {
         <div className="admin-logo-icon">
           <FiBook size={20} />
         </div>
-        E-Learning
+        SmartEdu
       </div>
 
       <div className="admin-menu">

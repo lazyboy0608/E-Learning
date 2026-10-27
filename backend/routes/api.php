@@ -14,25 +14,33 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\TeacherDashboardController;
 
-// Provide a friendly JSON response for accidental GET requests to /api/login
-// This prevents the default 405 HTML response when someone navigates to /api/login
+// Friendly JSON response cho GET /api/login
 Route::get('/login', function () {
     return response()->json([
         'message' => 'This endpoint accepts POST requests for authentication. Please POST credentials to /api/login.',
-        'hint' => 'Use POST /api/login with {email, password, role}'
+        'hint'    => 'Use POST /api/login with {email, password, role}'
     ], 200);
 });
 
-Route::post('/login', [AuthController::class, 'login'])->name('login');
-Route::post('/register', [AuthController::class, 'register']);
+// Authentication Routes (Được bảo vệ bằng Rate Limiting chuyên biệt)
+Route::post('/login', [AuthController::class, 'login'])
+    ->middleware('throttle:login')
+    ->name('login');
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::post('/register', [AuthController::class, 'register'])
+    ->middleware('throttle:register');
+
+Route::post('/refresh-token', [AuthController::class, 'refreshToken'])
+    ->middleware('throttle:refresh-token');
+
+// Protected Routes (Xác thực JWT kép qua HttpOnly Cookie / Bearer Token & Rate Limiting chung)
+Route::middleware(['jwt.auth', 'throttle:api'])->group(function () {
 
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
 
     // System Questions (Admin only)
-    Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
+    Route::middleware('role:admin')->group(function () {
         Route::get('/admin/questions', [QuestionController::class, 'indexSystem']);
         Route::post('/admin/questions', [QuestionController::class, 'storeSystem']);
         Route::put('/admin/questions/{id}', [QuestionController::class, 'updateSystem']);
@@ -46,7 +54,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // Class Questions (Teacher + Admin)
-    Route::middleware(['auth:sanctum', 'role:teacher,admin'])->group(function () {
+    Route::middleware('role:teacher,admin')->group(function () {
         Route::get('/teacher/questions', [QuestionController::class, 'indexClass']);
         Route::post('/teacher/questions', [QuestionController::class, 'storeClass']);
         Route::put('/teacher/questions/{id}', [QuestionController::class, 'updateClass']);
@@ -62,12 +70,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/practice/questions/random', [PracticeController::class, 'getRandomQuestions']);
     Route::get('/practice/questions/{id}', [PracticeController::class, 'getQuestion']);
     Route::get('/practices/{id}/questions', [PracticeController::class, 'getPracticeQuestions']);
-    Route::post('/practice/check', [PracticeController::class, 'submitAnswer']);
+    Route::post('/practice/check', [PracticeController::class, 'submitAnswer'])->middleware('throttle:assessment');
     Route::get('/practice/progress', [PracticeController::class, 'getProgress']);
     Route::get('/student/practices', [PracticeController::class, 'getStudentPractices']);
 
     // Teacher Practice Management
-    Route::middleware(['auth:sanctum', 'role:teacher,admin'])->group(function () {
+    Route::middleware('role:teacher,admin')->group(function () {
         Route::get('/teacher/practices', [PracticeController::class, 'index']);
         Route::get('/teacher/practices/{id}', [PracticeController::class, 'show']);
         Route::post('/teacher/practices', [PracticeController::class, 'store']);
@@ -88,11 +96,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/tests/attempts/{attemptId}/review', [TestController::class, 'review']);
     Route::post('/tests/attempts/{attemptId}/tab-switch', [TestController::class, 'reportTabSwitch']);
 
-    // Test Taking
+    // Test Taking (Được bảo vệ thêm bằng throttle:assessment)
     Route::get('/tests/{id}/attempts', [TestController::class, 'allAttempts']);
     Route::post('/tests/{id}/start', [TestController::class, 'start']);
-    Route::post('/tests/{id}/submit', [TestController::class, 'submit']);
-    Route::post('/tests/save-answer', [TestController::class,'saveAnswer']);
+    Route::post('/tests/{id}/submit', [TestController::class, 'submit'])->middleware('throttle:assessment');
+    Route::post('/tests/save-answer', [TestController::class, 'saveAnswer'])->middleware('throttle:assessment');
 
     Route::get('/tests/{id}', [TestController::class, 'show'])->whereNumber('id');
     Route::post('/tests', [TestController::class, 'store']);
@@ -148,36 +156,23 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/users/{id}', [UserController::class, 'destroy']);
 
     // Notifications
-    Route::get(
-        '/notifications',
-        [NotificationController::class, 'index']
-    );
-
-    Route::get(
-        '/notifications/unread-count',
-        [NotificationController::class, 'unreadCount']
-    );
-
-    Route::patch(
-        '/notifications/{id}/read',
-        [NotificationController::class, 'markAsRead']
-    );
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
+    Route::patch('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
 
     // Feedbacks (User: gửi và xem phản hồi của mình)
     Route::post('/feedbacks', [FeedbackController::class, 'store']);
     Route::get('/feedbacks/mine', [FeedbackController::class, 'mine']);
 
     // Feedbacks (Admin only)
-    Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
+    Route::middleware('role:admin')->group(function () {
         Route::get('/admin/feedbacks', [FeedbackController::class, 'index']);
         Route::post('/admin/feedbacks/{id}/reply', [FeedbackController::class, 'reply']);
         Route::patch('/admin/feedbacks/{id}/status', [FeedbackController::class, 'updateStatus']);
     });
 });
 
-// Broadcasting auth với Sanctum token (Bearer token từ frontend Echo client)
-// Route này thay thế /broadcasting/auth mặc định (dùng web/session auth)
-// để hỗ trợ SPA authentication qua API token
+// Broadcasting auth với JWT token (HttpOnly Cookie hoặc Bearer Header)
 Route::post('/broadcasting/auth', function (Request $request) {
     return Broadcast::auth($request);
-})->middleware('auth:sanctum');
+})->middleware('jwt.auth');

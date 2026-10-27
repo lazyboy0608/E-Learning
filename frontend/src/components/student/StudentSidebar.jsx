@@ -44,7 +44,7 @@ const StudentSidebar = ({ isOpen }) => {
         <div className="student-logo-icon">
           <FiBook size={20} />
         </div>
-        E-Learning
+        SmartEdu
       </div>
 
       {/* Navigation Menu */}

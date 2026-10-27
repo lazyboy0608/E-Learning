@@ -22,7 +22,7 @@ function LoginRolePage() {
         <div className="hp-header-inner">
           <div className="hp-logo">
             <span className="hp-logo-icon">📚</span>
-            <span className="hp-logo-text">E-Learning</span>
+            <span className="hp-logo-text">SmartEdu</span>
           </div>
 
           <div className="hp-auth-btns" style={{ marginLeft: 'auto' }}>
@@ -43,7 +43,7 @@ function LoginRolePage() {
       <div className="login1-page-body">
         <div className="auth-container login1-container">
           <div className="auth-card login1-card">
-            <h1 className="auth-title">Chào mừng đến với<br />hệ thống E-learning</h1>
+            <h1 className="auth-title">Chào mừng đến với<br />hệ thống SmartEdu</h1>
             <p className="auth-subtitle">Chọn vai trò của bạn để tiếp tục</p>
 
             <div className="auth-field" style={{ marginTop: '0.5rem' }}>
@@ -69,10 +69,10 @@ function LoginRolePage() {
               <div className="l1-visual-icon">🎓</div>
               <h2 className="l1-visual-title">Bắt đầu hành trình học tập của bạn</h2>
               <ul className="l1-visual-list">
-                <li>✅ Hơn 500+ khóa học chất lượng</li>
-                <li>✅ Giáo viên chuyên nghiệp</li>
-                <li>✅ Chứng chỉ được công nhận</li>
-                <li>✅ Học mọi lúc, mọi nơi</li>
+                <li>✅ Kho bài tập &amp; Đề thi chuẩn GDPT</li>
+                <li>✅ Thầy cô đồng hành &amp; Nhận xét chi tiết</li>
+                <li>✅ Lộ trình học bài bản theo từng khối lớp</li>
+                <li>✅ Luyện tập chủ động mọi lúc, mọi nơi</li>
               </ul>
             </div>
           </div>
