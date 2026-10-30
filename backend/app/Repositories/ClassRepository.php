@@ -6,6 +6,7 @@ use App\Models\ClassModel;
 use App\Models\ClassMaterial;
 use App\Models\ClassUser;
 use App\Models\ClassTest;
+use App\Models\ClassPractice;
 use App\Models\User;
 use App\Models\Test;
 use App\Models\Practice;
@@ -16,7 +17,7 @@ class ClassRepository implements ClassRepositoryInterface
 {
     public function getAll(array $filters = [], ?int $userId = null): Collection
     {
-        $query = ClassModel::with(['creator', 'users', 'teachers']);
+        $query = ClassModel::with(['creator', 'users', 'students', 'teachers']);
 
         if ($userId) {
             $query->whereHas('users', function ($q) use ($userId) {
@@ -51,6 +52,8 @@ class ClassRepository implements ClassRepositoryInterface
         return ClassModel::with([
             'creator',
             'users',
+            'students',
+            'teachers',
             'materials',
             'practices' => function ($q) {
                 $q->withCount('questions');
@@ -115,15 +118,15 @@ class ClassRepository implements ClassRepositoryInterface
 
     public function getTests(int $classId): Collection
     {
-        return Test::whereHas('classTests', function ($q) use ($classId) {
-            $q->where('class_id', $classId);
+        return Test::whereHas('classes', function ($q) use ($classId) {
+            $q->where('classes.id', $classId);
         })->get();
     }
 
     public function getPractices(int $classId): Collection
     {
-        return Practice::whereHas('classPractices', function ($q) use ($classId) {
-            $q->where('class_id', $classId);
+        return Practice::whereHas('classes', function ($q) use ($classId) {
+            $q->where('classes.id', $classId);
         })->get();
     }
 

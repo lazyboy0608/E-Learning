@@ -1,0 +1,60 @@
+@startuml student_take_test_and_anticheat_sequence
+title Sơ đồ Tuần tự (Sequence) - Làm Bài Thi & Giám Sát Chống Gian Lận Chuyển Tab (Anti-Cheat) - SmartEdu
+
+actor "Học sinh" as Student
+boundary "Giao diện Phòng thi React\n(TestSessionPage)" as UI <<boundary>>
+control "TestController" as TestCtrl <<control>>
+control "TestService" as TestSvc <<control>>
+control "AntiCheatDetectionService" as AntiCheatSvc <<control>>
+entity "TestAttempt" as AttemptModel <<entity>>
+database "MySQL" as DB <<database>>
+
+== Bước 1: Khởi tạo Lượt thi ==
+Student -> UI: Bấm nút "Bắt đầu làm bài"
+UI -> TestCtrl: Gửi POST /api/tests/{testId}/start
+TestCtrl -> TestSvc: startTest(testId, studentId)
+TestSvc -> DB: Kiểm tra điều kiện làm bài (đề đang mở, chưa hết hạn, số lần thi cho phép, lớp học)
+DB --> TestSvc: Hợp lệ, cho phép làm bài
+
+TestSvc -> AttemptModel: createAttempt(testId, studentId)
+AttemptModel -> DB: INSERT INTO test_attempts (test_id, user_id, status='in_progress', tab_switch_count=0, started_at=NOW())
+DB --> AttemptModel: Tạo lượt thi thành công với ID = attempt_id
+TestSvc --> TestCtrl: Trả về thông tin lượt thi và danh sách câu hỏi (đã ẩn đáp án đúng)
+TestCtrl --> UI: 200 OK + {attempt_id, questions, duration, tab_switch_count: 0}
+
+UI -> UI: Kích hoạt đồng hồ đếm ngược & Đăng ký sự kiện trình duyệt:\n- document.addEventListener('visibilitychange')\n- window.addEventListener('blur')
+
+== Bước 2: Tự động Lưu Đáp án Tạm thời trong khi làm bài ==
+Student -> UI: Chọn đáp án cho Câu hỏi số 1 (ví dụ chọn B)
+UI -> TestCtrl: Gửi POST /api/tests/save-answer\nPayload: {attempt_id, question_id, answer: ['B']}
+TestCtrl -> DB: Kiểm tra lượt thi thuộc về học sinh & trạng thái 'in_progress'
+TestCtrl -> DB: UPSERT test_attempt_answers (attempt_id, question_id, student_answer)
+DB --> TestCtrl: Lưu thành công
+TestCtrl --> UI: 200 OK ("Lưu câu trả lời tạm thời thành công.")
+UI -> UI: Đổi màu xanh trên bảng danh sách câu hỏi để học sinh an tâm
+
+== Bước 3: Phát hiện & Xử lý Chống gian lận khi Chuyển Tab (Anti-Cheat) ==
+Student -> Student: Chuyển sang tab khác hoặc thu nhỏ trình duyệt để tra cứu tài liệu
+UI -> UI: Trình duyệt kích hoạt sự kiện 'visibilitychange' (document.hidden == true)
+UI -> UI: Tăng biến đếm tabSwitchCount = tabSwitchCount + 1
+UI -> UI: Bật Modal cảnh báo đỏ: "CẢNH BÁO GIAN LẬN!\nBạn đã rời khỏi màn hình làm bài kiểm tra!"
+
+UI -> TestCtrl: Gửi POST /api/tests/attempts/{attemptId}/tab-switch
+TestCtrl -> AttemptModel: findOrFail(attemptId)
+TestCtrl -> TestCtrl: Kiểm tra attempt->user_id == học sinh hiện tại && status == 'in_progress'
+
+alt Lượt thi hợp lệ và đang diễn ra
+    TestCtrl -> AttemptModel: increment('tab_switch_count')
+    AttemptModel -> DB: UPDATE test_attempts SET tab_switch_count = tab_switch_count + 1 WHERE id = attempt_id
+    DB --> AttemptModel: Cập nhật thành công
+
+    TestCtrl -> AntiCheatSvc: logActivity(attemptId, 'tab_switch', details)
+    AntiCheatSvc -> DB: INSERT INTO event_logs (test_attempt_id, activity_type='tab_switch', details)
+
+    TestCtrl --> UI: Phản hồi 200 OK + {tab_switch_count: N, message: "Ghi nhận chuyển tab thành công."}
+    UI -> UI: Cập nhật banner cảnh báo vi phạm: "Số lần vi phạm chuyển tab: N"
+else Lượt thi đã kết thúc hoặc không hợp lệ
+    TestCtrl --> UI: 400 Bad Request ("Yêu cầu không hợp lệ hoặc lượt thi đã kết thúc.")
+end
+
+@enduml

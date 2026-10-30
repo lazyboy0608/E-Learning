@@ -37,7 +37,7 @@ class PracticeController extends Controller
             return $this->errorResponse('Bạn không có quyền xem bài luyện tập này.', 403);
         }
 
-        $practice->load(['subject:id,name', 'classes:id,name', 'questions.question:id,content,type,subject_id']);
+        $practice->load(['subject:id,name', 'classes:id,name', 'questions.question']);
 
         return $this->successResponse($practice);
     }

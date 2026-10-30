@@ -1,0 +1,58 @@
+@startuml student_submit_test_and_scoring_sequence
+title Sơ đồ Tuần tự (Sequence) - Nộp Bài Thi & Chấm Điểm Tự Động Theo Strategy Pattern (SmartEdu)
+
+actor "Học sinh" as Student
+boundary "Giao diện Phòng thi\n(TestSessionPage)" as UI <<boundary>>
+control "TestController" as TestCtrl <<control>>
+control "TestService" as TestSvc <<control>>
+control "ScoringStrategyFactory" as ScoreFactory <<control>>
+control "McqScoringStrategy" as ScoringStrategy <<control>>
+control "TestRepository" as TestRepo <<control>>
+entity "TestAttempt" as AttemptModel <<entity>>
+database "MySQL" as DB <<database>>
+
+Student -> UI: Bấm nút "Nộp bài kiểm tra" & Xác nhận nộp bài
+UI -> TestCtrl: Gửi POST /api/tests/{testId}/submit\nPayload: {attempt_id, answers: [{question_id, answer}, ...]}
+
+TestCtrl -> TestCtrl: Kiểm tra Rate Limiting (throttle:assessment - 120 req/phút)
+TestCtrl -> TestSvc: submitTest(testId, attemptId, studentId, answers)
+
+TestSvc -> AttemptModel: find(attemptId)
+TestSvc -> TestSvc: Kiểm tra trạng thái lượt thi attempt->status == 'in_progress'
+
+alt Lượt thi đã được nộp từ trước
+    TestSvc --> TestCtrl: Ném ngoại lệ ("This attempt has already been submitted.")
+    TestCtrl --> UI: Phản hồi 400 Bad Request
+else Lượt thi hợp lệ
+    TestSvc -> TestRepo: getTestWithQuestionsAndAnswers(testId)
+    TestRepo -> DB: SELECT câu hỏi, bảng test_questions (điểm từng câu), dữ liệu đáp án
+    DB --> TestRepo: Dữ liệu đề thi và ngân hàng câu hỏi đầy đủ
+
+    loop Lặp qua từng câu hỏi trong đề thi
+        TestSvc -> ScoreFactory: make(question->type)
+        ScoreFactory --> TestSvc: Trả về đối tượng Strategy tương ứng (ví dụ: McqScoringStrategy)
+
+        TestSvc -> ScoringStrategy: score(studentAnswer, correctAnswer, maxScore)
+        ScoringStrategy -> ScoringStrategy: So sánh các lựa chọn của học sinh với mảng correct_answers
+        ScoringStrategy --> TestSvc: Điểm đạt được của câu (ví dụ: 10/10 hoặc 0/10)
+
+        TestSvc -> DB: INSERT / UPDATE test_attempt_answers (attempt_id, question_id, student_answer, is_correct, earned_score)
+    end
+
+    TestSvc -> TestSvc: Tính tổng điểm (total_score), số câu đúng, thời gian làm bài
+    TestSvc -> AttemptModel: Cập nhật status='completed', score=total_score, submitted_at=NOW()
+    AttemptModel -> DB: UPDATE test_attempts SET status='completed', score=?, submitted_at=NOW()
+    DB --> AttemptModel: Cập nhật cơ sở dữ liệu thành công
+
+    TestSvc --> TestCtrl: Kết quả nộp bài {attempt_id, total_score, tab_switch_count, completed_at}
+    TestCtrl --> UI: Phản hồi 200 OK + {success: true, data: results}
+
+    UI -> UI: Chuyển hướng sang Trang Kết Quả Thi (/tests/attempts/{attempt_id})
+    UI -> TestCtrl: Gọi GET /api/tests/attempts/{attempt_id}/review
+    TestCtrl -> DB: Lấy chi tiết bài làm, đáp án đúng và lời giải chi tiết
+    DB --> TestCtrl: Dữ liệu bài làm chi tiết
+    TestCtrl --> UI: Phản hồi 200 OK
+    UI --> Student: Hiển thị bảng điểm tổng kết, số lần vi phạm chuyển tab và lời giải từng câu
+end
+
+@enduml

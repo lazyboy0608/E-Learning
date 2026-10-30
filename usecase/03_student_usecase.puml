@@ -1,49 +1,99 @@
 @startuml student_usecase
-title Use Case Diagram - Student Learning Activities
+title Sơ đồ Use Case - Hoạt động Học tập & Thi trực tuyến (Học sinh) - SmartEdu
 
 left to right direction
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
 
-actor Student
+actor "Học sinh\n(Student)" as Student
 
-rectangle "E-Learning System" {
-    ' Practice
-    (Practice) as Practice
-    (Get Question) as GetQ
-    (Submit Answer) as SubmitA
-    (View Result) as ViewResult
-    (View Explanation) as ViewExplain
-    
-    Practice --> GetQ
-    Practice --> SubmitA
-    Practice --> ViewResult
-    Practice --> ViewExplain
-    
-    ' Test
-    (Take Test) as TakeTest
-    (Enter Test Code) as EnterCode
-    (Start Test) as StartTest
-    (Submit Test) as SubmitTest
-    (View Test Result) as ViewTestResult
-    
-    TakeTest --> EnterCode
-    TakeTest --> StartTest
-    TakeTest --> SubmitTest
-    TakeTest --> ViewTestResult
-    
-    ' Class
-    (Join Class) as JoinClass
-    (View Materials) as ViewMat
-    (View Class Progress) as ViewCProgress
-    
-    ' Progress
-    (View Progress) as ViewProgress
-    (View Learning History) as ViewHistory
+rectangle "Hệ thống E-Learning SmartEdu" {
+
+    ' Xác thực
+    package "Xác thực & Tài khoản" {
+        usecase "Đăng ký tài khoản học sinh" as UC_Register
+        usecase "Đăng nhập (JWT kép & HttpOnly Cookie)" as UC_Login
+        usecase "Đăng xuất" as UC_Logout
+    }
+
+    ' Phân hệ Luyện tập & Tự học
+    package "Luyện tập & Tự học" {
+        usecase "Luyện tập câu hỏi" as UC_TakePractice
+        usecase "Lấy câu hỏi ngẫu nhiên theo môn học" as UC_GetRandomQ
+        usecase "Nộp câu trả lời luyện tập" as UC_SubmitPracticeA
+        usecase "Xem đáp án & lời giải thích tức thì" as UC_ViewInstantExplanation
+        usecase "Xem tiến độ & lịch sử luyện tập" as UC_ViewProgress
+    }
+
+    ' Phân hệ Kiểm tra & Thi trực tuyến có Anti-Cheat
+    package "Kiểm tra Trực tuyến & Giám sát Anti-Cheat" {
+        usecase "Tham gia làm bài kiểm tra" as UC_TakeTest
+        usecase "Truy cập phòng thi bằng mã đề" as UC_AccessByCode
+        usecase "Bắt đầu lượt làm bài thi" as UC_StartTest
+        usecase "Tự động lưu câu trả lời tạm thời" as UC_AutoSaveAnswer
+        usecase "Giám sát chống gian lận chuyển tab (Anti-Cheat)" as UC_AntiCheatMonitor
+        usecase "Nộp bài kiểm tra" as UC_SubmitTest
+        usecase "Xem điểm số & kết quả bài thi" as UC_ViewTestResult
+        usecase "Xem lại chi tiết bài làm & lời giải" as UC_ReviewTest
+        usecase "Xem lịch sử các lần thi của bản thân" as UC_ViewMyAttempts
+    }
+
+    ' Phân hệ Tham gia Lớp học
+    package "Tham gia Lớp học" {
+        usecase "Tham gia lớp học bằng mã lớp" as UC_JoinClass
+        usecase "Rời khỏi lớp học" as UC_LeaveClass
+        usecase "Xem thông tin chi tiết lớp học" as UC_ViewClassDetail
+        usecase "Xem & Tải tài liệu bài giảng" as UC_ViewMaterials
+        usecase "Xem các bài kiểm tra của lớp" as UC_ViewClassTests
+        usecase "Xem các bài luyện tập của lớp" as UC_ViewClassPractices
+    }
+
+    ' Thông báo thời gian thực & Phản hồi
+    package "Thông báo Realtime & Góp ý" {
+        usecase "Nhận thông báo thời gian thực (WebSocket Reverb)" as UC_RealtimeNotif
+        usecase "Xem danh sách thông báo chưa đọc" as UC_ViewUnreadNotif
+        usecase "Đánh dấu thông báo đã đọc" as UC_MarkNotifRead
+        usecase "Gửi ý kiến phản hồi / Góp ý bài học" as UC_SubmitFeedback
+        usecase "Xem phản hồi của mình & Trả lời từ Admin" as UC_ViewMyFeedbacks
+    }
+
+    ' Quan hệ - Luyện tập
+    UC_TakePractice ..> UC_GetRandomQ : <<include>>
+    UC_TakePractice ..> UC_SubmitPracticeA : <<include>>
+    UC_SubmitPracticeA ..> UC_ViewInstantExplanation : <<include>>
+
+    ' Quan hệ - Thi trực tuyến & Giám sát
+    UC_TakeTest <.. UC_AccessByCode : <<extend>>
+    UC_TakeTest ..> UC_StartTest : <<include>>
+    UC_TakeTest ..> UC_AutoSaveAnswer : <<include>>
+    UC_TakeTest ..> UC_AntiCheatMonitor : <<include>>
+    UC_TakeTest ..> UC_SubmitTest : <<include>>
+    UC_SubmitTest ..> UC_ViewTestResult : <<include>>
+    UC_ViewTestResult <.. UC_ReviewTest : <<extend>>
+
+    ' Quan hệ - Lớp học
+    UC_ViewClassDetail <.. UC_ViewMaterials : <<extend>>
+    UC_ViewClassDetail <.. UC_ViewClassTests : <<extend>>
+    UC_ViewClassDetail <.. UC_ViewClassPractices : <<extend>>
+
+    ' Quan hệ - Thông báo
+    UC_RealtimeNotif <.. UC_ViewUnreadNotif : <<extend>>
+    UC_ViewUnreadNotif <.. UC_MarkNotifRead : <<extend>>
 }
 
-Student --> Practice
-Student --> TakeTest
-Student --> JoinClass
-Student --> ViewProgress
-Student --> ViewHistory
+' Liên kết Actor Student
+Student --> UC_Register
+Student --> UC_Login
+Student --> UC_Logout
+Student --> UC_TakePractice
+Student --> UC_ViewProgress
+Student --> UC_TakeTest
+Student --> UC_ViewMyAttempts
+Student --> UC_JoinClass
+Student --> UC_LeaveClass
+Student --> UC_ViewClassDetail
+Student --> UC_RealtimeNotif
+Student --> UC_SubmitFeedback
+Student --> UC_ViewMyFeedbacks
 
 @enduml

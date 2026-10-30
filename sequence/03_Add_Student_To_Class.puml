@@ -1,0 +1,64 @@
+@startuml add_student_to_class_sequence
+title Sơ đồ Tuần tự (Sequence) - Giáo viên Thêm Học sinh vào Lớp học (SmartEdu)
+
+actor "Giáo viên" as Teacher
+boundary "Giao diện Quản lý Lớp\n(ClassDetailPage/Modal)" as UI <<boundary>>
+control "ClassController" as ClassCtrl <<control>>
+control "AddMemberRequest" as MemberRequest <<control>>
+control "ClassService" as ClassSvc <<control>>
+control "ClassRepository" as ClassRepo <<control>>
+control "ActivityLogService" as ActivitySvc <<control>>
+database "MySQL" as DB <<database>>
+
+Teacher -> UI: Tìm kiếm học sinh và bấm "Thêm vào lớp"
+UI -> ClassCtrl: Gửi POST /api/classes/{classId}/students\nPayload: { user_id: studentId }
+
+ClassCtrl -> MemberRequest: validate()
+alt Dữ liệu không hợp lệ hoặc user_id không tồn tại
+    MemberRequest --> ClassCtrl: 422 Lỗi dữ liệu
+    ClassCtrl --> UI: 422 Unprocessable Entity
+    UI --> Teacher: Hiển thị thông báo lỗi
+else Dữ liệu hợp lệ
+    MemberRequest --> ClassCtrl: Validated {user_id}
+
+    ClassCtrl -> ClassSvc: canManageClass(teacherId, classId)
+    ClassSvc -> DB: Kiểm tra giáo viên có phải người tạo lớp hoặc giáo viên phụ trách không
+    DB --> ClassSvc: Có quyền quản lý
+    ClassSvc --> ClassCtrl: true
+
+    alt Giáo viên KHÔNG có quyền quản lý lớp này
+        ClassCtrl --> UI: Phản hồi 403 Forbidden ("Bạn không có quyền thêm học sinh.")
+        UI --> Teacher: Thông báo không có quyền truy cập
+    else Có quyền quản lý
+        ClassCtrl -> ClassSvc: addStudent(classId, studentId)
+
+        ClassSvc -> DB: Truy vấn thông tin người dùng theo studentId
+        DB --> ClassSvc: Bản ghi người dùng
+
+        alt Người dùng không mang vai trò học sinh
+            ClassSvc --> ClassCtrl: {success: false, message: "Chỉ có thể thêm học sinh vào lớp."}
+            ClassCtrl --> UI: 400 Bad Request
+        else Người dùng là Học sinh
+            ClassSvc -> DB: Kiểm tra bản ghi ClassUser (class_id, user_id)
+            alt Học sinh đã có mặt trong lớp này từ trước
+                DB --> ClassSvc: Đã tồn tại
+                ClassSvc --> ClassCtrl: {success: false, message: "Học sinh đã tồn tại trong lớp."}
+                ClassCtrl --> UI: 400 Bad Request
+            else Chưa có trong lớp
+                ClassSvc -> ClassRepo: addStudent(classId, studentId)
+                ClassRepo -> DB: INSERT INTO class_users (class_id, user_id, role='student', joined_at=NOW())
+                DB --> ClassRepo: Thêm bản ghi thành công
+                ClassRepo --> ClassSvc: Đối tượng ClassUser Model
+
+                ClassSvc -> ActivitySvc: log('add_student', ClassModel::class, classId, "Added student to class")
+                ActivitySvc -> DB: INSERT INTO activity_logs (Ghi nhận lịch sử hoạt động)
+
+                ClassSvc --> ClassCtrl: {success: true, message: "Thêm học sinh thành công."}
+                ClassCtrl --> UI: Phản hồi 200 OK + Thông báo thành công
+                UI --> Teacher: Cập nhật danh sách học sinh lớp & Hiển thị thông báo thành công
+            end
+        end
+    end
+end
+
+@enduml

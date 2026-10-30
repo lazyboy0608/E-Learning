@@ -381,7 +381,21 @@ class TestService
 
     public function getAllAttemptsForTest(int $testId): Collection
     {
-        return $this->testRepository->getAttemptsByTestId($testId);
+        $attempts = $this->testRepository->getAttemptsByTestId($testId);
+        try {
+            $test = $this->testRepository->getTestWithQuestions($testId);
+            $totalMaxScore = (float) $test->questions->sum(fn($q) => (float)($q->pivot->score ?? 1));
+
+            foreach ($attempts as $attempt) {
+                $earned = $totalMaxScore > 0 ? round(((float)($attempt->score ?? 0) / 100) * $totalMaxScore, 2) : 0;
+                $attempt->setAttribute('total_points', $totalMaxScore);
+                $attempt->setAttribute('earned_points', $earned);
+            }
+        } catch (\Exception $e) {
+            // Fallback nếu không tải được questions
+        }
+
+        return $attempts;
     }
 
     public function getResults(int $attemptId): array

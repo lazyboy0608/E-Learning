@@ -39,8 +39,10 @@ import EditQuestionPage from '../../features/teacher/pages/EditQuestionPage';
 import AdminEditQuestionPage from '../../features/admin/pages/AdminEditQuestionPage';
 import ClassListPage from '../../features/teacher/pages/ClassListPage';
 import CreateClassPage from '../../features/teacher/pages/CreateClassPage';
+import EditClassPage from '../../features/teacher/pages/EditClassPage';
 import ClassDetailPage from '../../features/teacher/pages/ClassDetailPage';
 import TeacherPracticeListPage from '../../features/teacher/pages/PracticeListPage';
+import PracticeDetailPage from '../../features/teacher/pages/PracticeDetailPage';
 import CreatePracticePage from '../../features/teacher/pages/CreatePracticePage';
 import PracticeQuestionPage from '../../features/teacher/pages/PracticeQuestionPage';
 import TeacherSettingsPage from '../../features/teacher/pages/TeacherSettingsPage';
@@ -372,6 +374,14 @@ export function AppRoutes() {
           }
         />
         <Route
+          path="/teacher/classes/:classId/edit"
+          element={
+            <ProtectedRoute allowedRoles={['teacher']}>
+              <EditClassPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/teacher/practice"
           element={
             <ProtectedRoute allowedRoles={['teacher']}>
@@ -399,7 +409,7 @@ export function AppRoutes() {
           path="/teacher/practice/:practiceId"
           element={
             <ProtectedRoute allowedRoles={['teacher']}>
-              <TeacherPracticeListPage />
+              <PracticeDetailPage />
             </ProtectedRoute>
           }
         />

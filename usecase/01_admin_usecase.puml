@@ -1,32 +1,81 @@
 @startuml admin_usecase
-title Use Case Diagram - Admin System Management
+title Sơ đồ Use Case - Quản trị Hệ thống (Admin) - SmartEdu
 
 left to right direction
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
 
-actor Admin
+actor "Quản trị viên\n(Admin)" as Admin
 
-rectangle "E-Learning System" {
-    ' Admin use cases
-    (Manage Users) as ManageUsers
-    (Create User) as CreateUser
-    (Update User) as UpdateUser
-    (Delete User) as DeleteUser
-    (View User List) as ViewUsers
-    (Search User) as SearchUser
-    
-    (Assign Roles) as AssignRoles
-    (View System Overview) as SystemOverview
-    
-    ' Include relationships
-    ManageUsers --> CreateUser
-    ManageUsers --> UpdateUser
-    ManageUsers --> DeleteUser
-    ManageUsers --> ViewUsers
-    ManageUsers --> SearchUser
+rectangle "Hệ thống E-Learning SmartEdu" {
+
+    ' Phân hệ Quản lý Người dùng
+    package "Quản lý Người dùng" {
+        usecase "Quản lý người dùng" as UC_ManageUsers
+        usecase "Xem danh sách người dùng" as UC_ViewUsers
+        usecase "Xem danh sách giáo viên" as UC_ViewTeachers
+        usecase "Xem danh sách học sinh" as UC_ViewStudents
+        usecase "Xem chi tiết người dùng" as UC_ViewUserDetail
+        usecase "Cập nhật thông tin người dùng" as UC_UpdateUser
+        usecase "Xóa tài khoản người dùng" as UC_DeleteUser
+    }
+
+    ' Phân hệ Quản lý Ngân hàng Câu hỏi Hệ thống
+    package "Ngân hàng Câu hỏi Hệ thống" {
+        usecase "Quản lý câu hỏi hệ thống" as UC_ManageSysQuestions
+        usecase "Tạo câu hỏi hệ thống mới" as UC_CreateSysQuestion
+        usecase "Cập nhật câu hỏi hệ thống" as UC_UpdateSysQuestion
+        usecase "Xóa câu hỏi hệ thống" as UC_DeleteSysQuestion
+        usecase "Lọc câu hỏi theo môn/khối lớp" as UC_FilterQuestions
+    }
+
+    ' Phân hệ Quản lý Phản hồi & Góp ý
+    package "Quản lý Phản hồi & Hỗ trợ" {
+        usecase "Quản lý phản hồi ý kiến" as UC_ManageFeedbacks
+        usecase "Xem danh sách phản hồi" as UC_ViewFeedbacks
+        usecase "Trả lời phản hồi của học sinh" as UC_ReplyFeedback
+        usecase "Cập nhật trạng thái xử lý" as UC_UpdateFeedbackStatus
+    }
+
+    ' Phân hệ Giám sát & Báo cáo Thống kê
+    package "Giám sát & Thống kê" {
+        usecase "Xem thống kê số liệu hệ thống" as UC_ViewStats
+        usecase "Xem danh mục môn học" as UC_ManageSubjects
+    }
+
+    ' Xác thực bảo mật
+    package "Xác thực & Bảo mật" {
+        usecase "Đăng nhập (JWT kép & HttpOnly Cookie)" as UC_Login
+        usecase "Đăng xuất" as UC_Logout
+    }
+
+    ' Quan hệ Quản lý Người dùng
+    UC_ManageUsers ..> UC_ViewUsers : <<include>>
+    UC_ManageUsers ..> UC_ViewTeachers : <<include>>
+    UC_ManageUsers ..> UC_ViewStudents : <<include>>
+    UC_ManageUsers <.. UC_ViewUserDetail : <<extend>>
+    UC_ManageUsers <.. UC_UpdateUser : <<extend>>
+    UC_ManageUsers <.. UC_DeleteUser : <<extend>>
+
+    ' Quan hệ Câu hỏi
+    UC_ManageSysQuestions ..> UC_FilterQuestions : <<include>>
+    UC_ManageSysQuestions <.. UC_CreateSysQuestion : <<extend>>
+    UC_ManageSysQuestions <.. UC_UpdateSysQuestion : <<extend>>
+    UC_ManageSysQuestions <.. UC_DeleteSysQuestion : <<extend>>
+
+    ' Quan hệ Phản hồi
+    UC_ManageFeedbacks ..> UC_ViewFeedbacks : <<include>>
+    UC_ManageFeedbacks <.. UC_ReplyFeedback : <<extend>>
+    UC_ManageFeedbacks <.. UC_UpdateFeedbackStatus : <<extend>>
 }
 
-Admin --> ManageUsers
-Admin --> AssignRoles
-Admin --> SystemOverview
+' Liên kết Actor Admin
+Admin --> UC_Login
+Admin --> UC_Logout
+Admin --> UC_ManageUsers
+Admin --> UC_ManageSysQuestions
+Admin --> UC_ManageFeedbacks
+Admin --> UC_ViewStats
+Admin --> UC_ManageSubjects
 
 @enduml

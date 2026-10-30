@@ -1,0 +1,81 @@
+@startuml authentication_jwt_dual_token_sequence
+title Sơ đồ Tuần tự (Sequence) - Xác thực JWT kép & Tự động làm mới Token (SmartEdu)
+
+actor "Người dùng\n(User)" as User
+boundary "Giao diện Đăng nhập\n(LoginModal/Page)" as UI <<boundary>>
+control "Axios Client\n(Frontend)" as HTTPClient <<boundary>>
+control "AuthController" as AuthCtrl <<control>>
+control "AuthService" as AuthSvc <<control>>
+control "JwtService" as JwtSvc <<control>>
+entity "RefreshToken" as TokenModel <<entity>>
+database "MySQL" as DB <<database>>
+
+== Giai đoạn 1: Đăng nhập & Cấp Cặp Token Bảo Mật ==
+User -> UI: Nhập email, mật khẩu và chọn vai trò (role)
+UI -> HTTPClient: Gửi yêu cầu POST /api/login {email, password, role}
+HTTPClient -> AuthCtrl: Chuyển tiếp request đăng nhập
+AuthCtrl -> AuthSvc: login(credentials)
+AuthSvc -> DB: Truy vấn User theo email & kiểm tra băm mật khẩu
+DB --> AuthSvc: Người dùng hợp lệ
+
+AuthSvc -> JwtSvc: generateTokens(user)
+JwtSvc -> JwtSvc: Tạo AccessToken (thời hạn 15 phút)
+JwtSvc -> JwtSvc: Tạo RefreshToken (ngẫu nhiên bảo mật, thời hạn 7 ngày)
+JwtSvc -> TokenModel: Lưu chuỗi băm SHA-256 của refresh_token
+TokenModel -> DB: INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
+DB --> TokenModel: Lưu thành công
+
+JwtSvc --> AuthSvc: {access_token, refresh_token}
+AuthSvc --> AuthCtrl: {user, access_token, refresh_token}
+
+AuthCtrl -> AuthCtrl: Đính kèm Cookie an toàn (Set-Cookie):\n- access_token (HttpOnly, SameSite=Lax, 15 phút)\n- refresh_token (HttpOnly, SameSite=Lax, 7 ngày)
+AuthCtrl --> HTTPClient: Phản hồi 200 OK + Dữ liệu {user, access_token}
+HTTPClient --> UI: Cập nhật trạng thái đăng nhập, chuyển hướng vào Dashboard
+
+== Giai đoạn 2: Gọi API Được Bảo Vệ Bằng HttpOnly Cookie ==
+User -> UI: Thao tác vào trang lớp học / làm bài thi
+UI -> HTTPClient: Gọi GET /api/classes
+HTTPClient -> AuthCtrl: Request tự động mang Cookie: access_token=...
+note over AuthCtrl: Middleware JwtAuthenticate ưu tiên trích xuất token\ntừ HttpOnly Cookie (hoặc Bearer Header dự phòng)
+AuthCtrl -> JwtSvc: validateAccessToken(token)
+JwtSvc --> AuthCtrl: Token hợp lệ (Thông tin payload: user_id, role)
+AuthCtrl -> AuthCtrl: Chuyển quyền xử lý đến ClassController
+AuthCtrl --> HTTPClient: Phản hồi 200 OK + Dữ liệu tài nguyên
+HTTPClient --> UI: Hiển thị nội dung cho người dùng
+
+== Giai đoạn 3: Hết hạn Access Token & Tự động làm mới ngầm (Silent Refresh) ==
+User -> UI: Thực hiện thao tác sau 15 phút (ví dụ: Lưu đáp án bài thi)
+UI -> HTTPClient: Gọi POST /api/tests/save-answer
+HTTPClient -> AuthCtrl: Request gửi access_token đã hết hạn
+AuthCtrl -> JwtSvc: validateAccessToken(token)
+JwtSvc --> AuthCtrl: Báo lỗi TokenExpiredException
+AuthCtrl --> HTTPClient: Phản hồi 401 Unauthorized (Token hết hạn)
+
+note over HTTPClient: Axios Interceptor bắt mã 401\nTạm giữ các request chờ và kích hoạt Silent Refresh
+HTTPClient -> AuthCtrl: Gọi POST /api/refresh-token (mang Cookie: refresh_token=...)
+AuthCtrl -> AuthSvc: refreshToken(raw_refresh_token)
+AuthSvc -> JwtSvc: verifyAndRotateRefreshToken(token)
+JwtSvc -> DB: SELECT * FROM refresh_tokens WHERE token_hash = SHA256(token)
+alt Refresh Token hợp lệ và chưa hết hạn
+    DB --> JwtSvc: Tìm thấy bản ghi hợp lệ
+    JwtSvc -> DB: Thu hồi refresh_token cũ (Xóa hoặc đánh dấu đã dùng)
+    JwtSvc -> JwtSvc: Cấp AccessToken mới (15m) & RefreshToken mới (7d)
+    JwtSvc -> DB: INSERT INTO refresh_tokens (Cơ chế Token Rotation)
+    JwtSvc --> AuthSvc: {new_access_token, new_refresh_token}
+    AuthSvc --> AuthCtrl: Đổi mới token thành công
+    AuthCtrl -> AuthCtrl: Ghi đè Set-Cookie mới
+    AuthCtrl --> HTTPClient: 200 OK + {access_token: new_token}
+
+    note over HTTPClient: Tự động gửi lại request bị gián đoạn ban đầu với token mới
+    HTTPClient -> AuthCtrl: POST /api/tests/save-answer
+    AuthCtrl --> HTTPClient: 200 OK (Lưu đáp án thành công)
+    HTTPClient --> UI: Người dùng tiếp tục làm bài trơn tru, không bị văng ra ngoài
+else Token bị tái sử dụng hoặc không hợp lệ (Phát hiện tấn công Replay Attack)
+    JwtSvc -> DB: Hủy toàn bộ refresh_tokens của user_id (Bảo vệ tài khoản)
+    JwtSvc --> AuthSvc: InvalidTokenException
+    AuthSvc --> AuthCtrl: Phản hồi 401 Unauthorized
+    AuthCtrl --> HTTPClient: 401 Unauthorized (Buộc đăng xuất)
+    HTTPClient --> UI: Xóa phiên làm việc & Chuyển hướng về trang Đăng nhập
+end
+
+@enduml

@@ -1,0 +1,49 @@
+@startuml teacher_create_question_sequence
+title Sơ đồ Tuần tự (Sequence) - Tạo Câu hỏi Áp dụng Builder Pattern (SmartEdu)
+
+actor "Giáo viên / Admin" as User
+boundary "Giao diện Tạo câu hỏi\n(CreateQuestionPage)" as UI <<boundary>>
+control "QuestionController" as QuestionCtrl <<control>>
+control "CreateQuestionRequest" as FormRequest <<control>>
+control "QuestionService" as QuestionSvc <<control>>
+control "QuestionBuilderFactory" as BuilderFactory <<control>>
+control "McqQuestionBuilder" as Builder <<control>>
+control "QuestionRepository" as QuestionRepo <<control>>
+database "MySQL" as DB <<database>>
+
+User -> UI: Nhập thông tin câu hỏi (Môn học, Loại câu hỏi=mcq, Nội dung, Các lựa chọn A/B/C/D, Đáp án đúng, Lời giải chi tiết)
+User -> UI: Bấm nút "Tạo câu hỏi"
+
+UI -> QuestionCtrl: Gửi POST /api/teacher/questions (hoặc /api/admin/questions)
+QuestionCtrl -> FormRequest: validate(payload)
+
+alt Dữ liệu không hợp lệ (Thiếu nội dung, sai định dạng lựa chọn)
+    FormRequest --> QuestionCtrl: Lỗi 422 Unprocessable Entity
+    QuestionCtrl --> UI: Trả về thông báo lỗi chi tiết
+    UI --> User: Hiển thị cảnh báo lỗi trên form
+else Dữ liệu hợp lệ
+    FormRequest --> QuestionCtrl: Dữ liệu đã được kiểm duyệt (Validated Data)
+
+    QuestionCtrl -> QuestionSvc: createQuestion(validatedData, userId)
+    QuestionSvc -> QuestionSvc: Xác định phạm vi ('system' đối với Admin, 'class' đối với Giáo viên)
+
+    QuestionSvc -> BuilderFactory: make(type = 'mcq')
+    BuilderFactory --> QuestionSvc: Khởi tạo đối tượng McqQuestionBuilder
+
+    QuestionSvc -> Builder: build(data)
+    Builder -> Builder: Đóng gói options và trích xuất mảng correct_answers thành JSON
+    Builder --> QuestionSvc: Mảng dữ liệu câu hỏi đã chuẩn hóa
+
+    QuestionSvc -> QuestionRepo: create(questionData)
+    QuestionRepo -> DB: INSERT INTO questions (subject_id, created_by, scope, type, content, data, explanation, ...)
+    DB --> QuestionRepo: Trả về bản ghi câu hỏi mới tạo
+    QuestionRepo --> QuestionSvc: Đối tượng Question Model
+
+    QuestionSvc -> QuestionSvc: ActivityLogService::log('create_question', questionId)
+
+    QuestionSvc --> QuestionCtrl: Question Model
+    QuestionCtrl --> UI: Phản hồi 201 Created + QuestionResource JSON
+    UI --> User: Hiển thị thông báo thành công & Chuyển hướng về Danh sách câu hỏi
+end
+
+@enduml

@@ -112,7 +112,11 @@ const AdminTestDetailPage = () => {
   }
 
   const totalQuestions = test.questions?.length || 0;
-  const totalScore = test.questions?.reduce((sum, q) => sum + (q.pivot?.score || 1), 0) || 0;
+  const rawTotalScore = test.questions?.reduce((sum, q) => {
+    const scoreVal = parseFloat(q.pivot?.score);
+    return sum + (isNaN(scoreVal) ? 1 : scoreVal);
+  }, 0) || 0;
+  const totalScore = Number.isInteger(rawTotalScore) ? rawTotalScore : parseFloat(rawTotalScore.toFixed(2));
 
   return (
     <AdminLayout title={test.title}>

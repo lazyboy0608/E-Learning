@@ -1,0 +1,60 @@
+@startuml realtime_notification_flow_sequence
+title Sơ đồ Tuần tự (Sequence) - Thông Báo Thời Gian Thực Qua Laravel Reverb WebSocket (SmartEdu)
+
+actor "Giáo viên / Hệ thống" as Sender
+actor "Học sinh" as Student
+boundary "Giao diện Chuông Thông báo\n(Header Bell Icon)" as StudentUI <<boundary>>
+control "Laravel Echo\n(Frontend)" as Echo <<boundary>>
+control "Laravel Reverb\n(WebSocket Port 8080)" as WebSocketServer <<control>>
+control "BroadcastController" as BroadcastCtrl <<control>>
+control "NotificationController" as NotifCtrl <<control>>
+control "NotificationService" as NotifSvc <<control>>
+database "MySQL" as DB <<database>>
+
+== Bước 1: Khởi tạo Kết nối WebSocket & Chứng thực Kênh Riêng tư (Private Channel) ==
+Student -> StudentUI: Đăng nhập vào hệ thống SmartEdu
+StudentUI -> Echo: Khởi tạo kết nối Laravel Echo đến máy chủ Reverb (Port 8080)
+Echo -> WebSocketServer: Mở kết nối WebSocket (ws://localhost:8080)
+WebSocketServer --> Echo: Kết nối thành công, trả về {socket_id}
+
+Echo -> BroadcastCtrl: Gửi POST /api/broadcasting/auth\nHeaders: Cookie (access_token), socket_id, channel_name='private-notifications.{studentId}'
+BroadcastCtrl -> BroadcastCtrl: Middleware jwt.auth xác thực AccessToken từ HttpOnly Cookie
+BroadcastCtrl -> BroadcastCtrl: Kiểm tra quyền sở hữu kênh riêng tư (student.id == channel.id)
+
+alt Chứng thực thành công
+    BroadcastCtrl --> Echo: 200 OK + Khóa chữ ký xác thực (Auth Signature Hash)
+    Echo -> WebSocketServer: Đăng ký lắng nghe kênh 'private-notifications.{studentId}' kèm Auth Signature
+    WebSocketServer --> Echo: Đăng ký kênh thành công
+else Không có quyền truy cập
+    BroadcastCtrl --> Echo: 403 Forbidden
+end
+
+== Bước 2: Giáo viên Gán Bài Mới & Máy chủ Phát Sự kiện Realtime ==
+Sender -> NotifSvc: Giáo viên gán bài kiểm tra mới / Admin trả lời góp ý
+NotifSvc -> DB: INSERT INTO notifications (user_id=studentId, type, title, message, is_read=false, created_at=NOW())
+DB --> NotifSvc: Lưu thông báo thành công
+
+NotifSvc -> NotifSvc: Kích hoạt sự kiện event(new NotificationSentEvent($notification))
+NotifSvc -> WebSocketServer: Bắn sự kiện qua HTTP API nội bộ (Port 8080)\nKênh: 'private-notifications.{studentId}'\nTên sự kiện: '.notification.sent'\nDữ liệu: {id, title, message, created_at}
+
+WebSocketServer -> Echo: Đẩy thông điệp WebSocket tức thì xuống socket của học sinh
+Echo -> StudentUI: Kích hoạt hàm callback nhận thông báo mới
+StudentUI -> StudentUI: Tăng số lượng thông báo chưa đọc: unreadCount = unreadCount + 1
+StudentUI -> StudentUI: Phát âm thanh thông báo nhẹ & Hiển thị popup Toast thông báo nổi:\n"Bạn có bài kiểm tra mới được giao!"
+
+== Bước 3: Học sinh Xem & Đọc Thông Báo ==
+Student -> StudentUI: Bấm vào biểu tượng Chuông thông báo
+StudentUI -> NotifCtrl: Gửi GET /api/notifications (Lấy danh sách 20 thông báo gần nhất)
+NotifCtrl -> DB: SELECT * FROM notifications WHERE user_id = studentId ORDER BY created_at DESC
+DB --> NotifCtrl: Danh sách thông báo
+NotifCtrl --> StudentUI: 200 OK + Danh sách dữ liệu
+StudentUI --> Student: Hiển thị bảng danh sách thông báo nổi
+
+Student -> StudentUI: Bấm vào một thông báo cụ thể để xem chi tiết
+StudentUI -> NotifCtrl: Gửi PATCH /api/notifications/{id}/read
+NotifCtrl -> DB: UPDATE notifications SET read_at = NOW() WHERE id = id
+DB --> NotifCtrl: Cập nhật thành công
+NotifCtrl --> StudentUI: 200 OK ("Đã đánh dấu là đã đọc.")
+StudentUI -> StudentUI: Giảm biến đếm unreadCount & Đổi trạng thái thông báo thành đã đọc
+
+@enduml

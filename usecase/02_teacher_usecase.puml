@@ -1,79 +1,113 @@
 @startuml teacher_usecase
-title Use Case Diagram - Teacher Content Management
+title Sơ đồ Use Case - Giáo viên Quản lý Nội dung & Lớp học - SmartEdu
 
 left to right direction
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
 
-actor Teacher
+actor "Giáo viên\n(Teacher)" as Teacher
 
-rectangle "E-Learning System" {
-    ' Question Management
-    (Manage Questions) as ManageQ
-    (Create Question) as CreateQ
-    (Update Question) as UpdateQ
-    (Delete Question) as DeleteQ
-    (View Question List) as ViewQList
-    (Search Question) as SearchQ
-    (Filter Question) as FilterQ
-    
-    ManageQ --> CreateQ
-    ManageQ --> UpdateQ
-    ManageQ --> DeleteQ
-    ManageQ --> ViewQList
-    ManageQ --> SearchQ
-    ManageQ --> FilterQ
-    
-    ' Test Management
-    (Manage Tests) as ManageT
-    (Create Test) as CreateT
-    (Update Test) as UpdateT
-    (Delete Test) as DeleteT
-    (View Test List) as ViewTList
-    (Search Test) as SearchT
-    (Add Questions to Test) as AddQToTest
-    (Assign Test to Class) as AssignTestClass
-    (Generate Test Code) as GenTestCode
-    
-    ManageT --> CreateT
-    ManageT --> UpdateT
-    ManageT --> DeleteT
-    ManageT --> ViewTList
-    ManageT --> SearchT
-    ManageT --> AddQToTest
-    ManageT --> AssignTestClass
-    ManageT --> GenTestCode
-    
-    ' Class Management
-    (Manage Classes) as ManageC
-    (Create Class) as CreateC
-    (Add Student) as AddStudent
-    (Remove Student) as RemoveStudent
-    (Upload Material) as UploadMat
-    (Assign Test) as AssignTest
-    (View Class Detail) as ViewCDetail
-    (Search Class) as SearchC
-    
-    ManageC --> CreateC
-    ManageC --> AddStudent
-    ManageC --> RemoveStudent
-    ManageC --> UploadMat
-    ManageC --> AssignTest
-    ManageC --> ViewCDetail
-    ManageC --> SearchC
-    
-    ' Analytics
-    (View Student Results) as ViewResults
-    (View Class Performance) as ViewPerf
-    (Search Student Result) as SearchResult
-    
-    (Analytics) as Analytics
-    Analytics --> ViewResults
-    Analytics --> ViewPerf
-    Analytics --> SearchResult
+rectangle "Hệ thống E-Learning SmartEdu" {
+
+    ' Xác thực
+    package "Xác thực & Bảo mật" {
+        usecase "Đăng nhập (JWT kép & HttpOnly Cookie)" as UC_Login
+        usecase "Đăng xuất" as UC_Logout
+    }
+
+    ' Quản lý Câu hỏi Lớp học
+    package "Quản lý Câu hỏi Lớp học" {
+        usecase "Quản lý câu hỏi lớp" as UC_ManageQ
+        usecase "Tạo câu hỏi mới (Trắc nghiệm/Điền khuyết/...)" as UC_CreateQ
+        usecase "Cập nhật câu hỏi lớp" as UC_UpdateQ
+        usecase "Xóa câu hỏi lớp" as UC_DeleteQ
+        usecase "Xem chi tiết câu hỏi" as UC_ViewQ
+    }
+
+    ' Quản lý Đề kiểm tra & Giám thị
+    package "Quản lý Bài kiểm tra & Đề thi" {
+        usecase "Quản lý bài kiểm tra" as UC_ManageTests
+        usecase "Tạo đề kiểm tra mới (Mã phòng/Trong lớp)" as UC_CreateTest
+        usecase "Cập nhật thông tin đề thi" as UC_UpdateTest
+        usecase "Xóa bài kiểm tra" as UC_DeleteTest
+        usecase "Thêm câu hỏi vào đề thi" as UC_AddQToTest
+        usecase "Xem lượt thi & Vi phạm chuyển tab Anti-Cheat" as UC_ViewTestAttempts
+    }
+
+    ' Quản lý Bài luyện tập
+    package "Quản lý Bài luyện tập" {
+        usecase "Quản lý bài luyện tập" as UC_ManagePractices
+        usecase "Tạo bài luyện tập mới" as UC_CreatePractice
+        usecase "Cập nhật bài luyện tập" as UC_UpdatePractice
+        usecase "Xóa bài luyện tập" as UC_DeletePractice
+        usecase "Xem danh sách câu hỏi luyện tập" as UC_ViewPracticeQ
+    }
+
+    ' Quản lý Lớp học & Tài liệu
+    package "Quản lý Lớp học & Tài liệu" {
+        usecase "Quản lý lớp học" as UC_ManageClasses
+        usecase "Tạo lớp học mới" as UC_CreateClass
+        usecase "Cập nhật thông tin lớp" as UC_UpdateClass
+        usecase "Xóa / Giải tán lớp học" as UC_DeleteClass
+        usecase "Thêm học sinh vào lớp" as UC_AddStudent
+        usecase "Xóa học sinh khỏi lớp" as UC_RemoveStudent
+        usecase "Thêm giáo viên phụ trách cùng" as UC_AddTeacher
+        usecase "Tải lên tài liệu học tập (PDF/Video)" as UC_UploadMaterial
+        usecase "Xóa tài liệu học tập" as UC_RemoveMaterial
+        usecase "Gán bài kiểm tra cho lớp" as UC_AssignTest
+        usecase "Gán bài luyện tập cho lớp" as UC_AssignPractice
+        usecase "Xem bảng điểm bài thi của lớp" as UC_ViewClassScores
+    }
+
+    ' Thống kê & Phản hồi
+    package "Thống kê & Đóng góp ý kiến" {
+        usecase "Xem thống kê Dashboard giáo viên" as UC_DashboardStats
+        usecase "Gửi ý kiến phản hồi / Báo lỗi" as UC_SubmitFeedback
+        usecase "Xem lịch sử phản hồi của mình" as UC_ViewOwnFeedbacks
+    }
+
+    ' Quan hệ - Câu hỏi
+    UC_ManageQ <.. UC_CreateQ : <<extend>>
+    UC_ManageQ <.. UC_UpdateQ : <<extend>>
+    UC_ManageQ <.. UC_DeleteQ : <<extend>>
+    UC_ManageQ <.. UC_ViewQ : <<extend>>
+
+    ' Quan hệ - Đề thi
+    UC_ManageTests <.. UC_CreateTest : <<extend>>
+    UC_ManageTests <.. UC_UpdateTest : <<extend>>
+    UC_ManageTests <.. UC_DeleteTest : <<extend>>
+    UC_CreateTest ..> UC_AddQToTest : <<include>>
+    UC_ManageTests <.. UC_ViewTestAttempts : <<extend>>
+
+    ' Quan hệ - Luyện tập
+    UC_ManagePractices <.. UC_CreatePractice : <<extend>>
+    UC_ManagePractices <.. UC_UpdatePractice : <<extend>>
+    UC_ManagePractices <.. UC_DeletePractice : <<extend>>
+    UC_ManagePractices <.. UC_ViewPracticeQ : <<extend>>
+
+    ' Quan hệ - Lớp học
+    UC_ManageClasses <.. UC_CreateClass : <<extend>>
+    UC_ManageClasses <.. UC_UpdateClass : <<extend>>
+    UC_ManageClasses <.. UC_DeleteClass : <<extend>>
+    UC_ManageClasses <.. UC_AddStudent : <<extend>>
+    UC_ManageClasses <.. UC_RemoveStudent : <<extend>>
+    UC_ManageClasses <.. UC_AddTeacher : <<extend>>
+    UC_ManageClasses <.. UC_UploadMaterial : <<extend>>
+    UC_ManageClasses <.. UC_RemoveMaterial : <<extend>>
+    UC_ManageClasses <.. UC_AssignTest : <<extend>>
+    UC_ManageClasses <.. UC_AssignPractice : <<extend>>
+    UC_ManageClasses <.. UC_ViewClassScores : <<extend>>
 }
 
-Teacher --> ManageQ
-Teacher --> ManageT
-Teacher --> ManageC
-Teacher --> Analytics
+' Liên kết Actor Teacher
+Teacher --> UC_Login
+Teacher --> UC_Logout
+Teacher --> UC_ManageQ
+Teacher --> UC_ManageTests
+Teacher --> UC_ManagePractices
+Teacher --> UC_ManageClasses
+Teacher --> UC_DashboardStats
+Teacher --> UC_SubmitFeedback
+Teacher --> UC_ViewOwnFeedbacks
 
 @enduml

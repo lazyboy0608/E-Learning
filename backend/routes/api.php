@@ -148,12 +148,14 @@ Route::middleware(['jwt.auth', 'throttle:api'])->group(function () {
     Route::delete('/classes/{class}/practices/{practice}', [ClassController::class, 'removePractice']);
 
     // Users (Admin only)
-    Route::get('/users', [UserController::class, 'index']);
-    Route::get('/users/teachers', [UserController::class, 'teachers']);
-    Route::get('/users/students', [UserController::class, 'students']);
-    Route::get('/users/{id}', [UserController::class, 'show']);
-    Route::put('/users/{id}', [UserController::class, 'update']);
-    Route::delete('/users/{id}', [UserController::class, 'destroy']);
+    Route::middleware('role:admin')->group(function () {
+        Route::get('/users', [UserController::class, 'index']);
+        Route::get('/users/teachers', [UserController::class, 'teachers']);
+        Route::get('/users/students', [UserController::class, 'students']);
+        Route::get('/users/{id}', [UserController::class, 'show']);
+        Route::put('/users/{id}', [UserController::class, 'update']);
+        Route::delete('/users/{id}', [UserController::class, 'destroy']);
+    });
 
     // Notifications
     Route::get('/notifications', [NotificationController::class, 'index']);

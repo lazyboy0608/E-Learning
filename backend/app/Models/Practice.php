@@ -39,6 +39,11 @@ class Practice extends Model
         return $this->hasMany(PracticeQuestion::class);
     }
 
+    public function classPractices(): HasMany
+    {
+        return $this->hasMany(ClassPractice::class);
+    }
+
     public function classes(): BelongsToMany
     {
         return $this->belongsToMany(

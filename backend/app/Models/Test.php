@@ -57,6 +57,11 @@ class Test extends Model
         return $this->hasMany(TestAttempt::class);
     }
 
+    public function classTests(): HasMany
+    {
+        return $this->hasMany(ClassTest::class);
+    }
+
     public function classes(): BelongsToMany
     {
         return $this->belongsToMany(
