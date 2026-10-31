@@ -20,6 +20,7 @@ class ClassResource extends JsonResource
             'users' => UserResource::collection($this->whenLoaded('users')),
             'students' => UserResource::collection($this->whenLoaded('students')),
             'teachers' => UserResource::collection($this->whenLoaded('teachers')),
+            'materials' => ClassMaterialResource::collection($this->whenLoaded('materials')),
             'tests' => TestResource::collection($this->whenLoaded('tests')),
             'practices' => PracticeResource::collection($this->whenLoaded('practices')),
             'created_at' => $this->created_at,

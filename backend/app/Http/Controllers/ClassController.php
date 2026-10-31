@@ -9,6 +9,7 @@ use App\Http\Requests\Class\AddMemberRequest;
 use App\Http\Requests\Class\StoreMaterialRequest;
 use App\Http\Requests\Class\AssignTestRequest;
 use App\Http\Requests\Class\AssignPracticeRequest;
+use App\Http\Resources\ClassMaterialResource;
 use App\Services\ClassService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -229,7 +230,10 @@ class ClassController extends Controller
     {
         $materials = $this->classService->getMaterials($classId);
 
-        return $this->successResponse($materials, 'Lấy danh sách tài liệu thành công');
+        return $this->successResponse(
+            ClassMaterialResource::collection($materials),
+            'Lấy danh sách tài liệu thành công'
+        );
     }
 
     public function storeMaterial(StoreMaterialRequest $request, int $classId): JsonResponse
@@ -240,9 +244,13 @@ class ClassController extends Controller
             return $this->errorResponse('Bạn không có quyền thêm tài liệu.', 403);
         }
 
-        $material = $this->classService->addMaterial($classId, $request->validated());
+        $material = $this->classService->addMaterial($classId, $request->validated(), $request->file('file'));
 
-        return $this->successResponse($material, 'Thêm tài liệu thành công.', 201);
+        return $this->successResponse(
+            new ClassMaterialResource($material),
+            'Thêm tài liệu thành công.',
+            201
+        );
     }
 
     public function removeMaterial(Request $request, int $classId, int $materialId): JsonResponse
@@ -333,5 +341,39 @@ class ClassController extends Controller
         $this->classService->removePractice($classId, $practiceId);
 
         return $this->successResponse(null, 'Xóa bài ôn tập thành công.');
+    }
+
+    public function announcements(Request $request, int $classId): JsonResponse
+    {
+        $user = $request->user();
+
+        if ($user->role !== 'admin' && !$this->classService->canAccessClass($user->id, $classId)) {
+            return $this->errorResponse('Bạn không có quyền truy cập thông báo của lớp học này.', 403);
+        }
+
+        $perPage = (int) $request->input('per_page', 20);
+        $announcements = $this->classService->getAnnouncements($classId, $perPage);
+
+        return $this->successResponse($announcements, 'Lấy danh sách thông báo thành công.');
+    }
+
+    public function storeAnnouncement(Request $request, int $classId): JsonResponse
+    {
+        $user = $request->user();
+
+        if (!$this->classService->canManageClass($user->id, $classId)) {
+            return $this->errorResponse('Bạn không có quyền đăng thông báo cho lớp học này.', 403);
+        }
+
+        $validated = $request->validate([
+            'title'   => 'required|string|max:255',
+            'content' => 'required|string|max:2000',
+            'type'    => 'nullable|string|in:custom,material,test,practice,student_joined',
+            'data'    => 'nullable|array',
+        ]);
+
+        $announcement = $this->classService->createAnnouncement($classId, $validated, $user->id);
+
+        return $this->successResponse($announcement, 'Đăng thông báo thành công.', 201);
     }
 }

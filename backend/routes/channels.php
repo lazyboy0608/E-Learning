@@ -11,3 +11,22 @@ Broadcast::channel(
         return (int)$user->id === (int)$userId;
     }
 );
+
+Broadcast::channel('classes.{classId}', function ($user, $classId) {
+    if ($user->role === 'admin') {
+        return true;
+    }
+
+    $class = \App\Models\ClassModel::find($classId);
+    if (!$class) {
+        return false;
+    }
+
+    if ($class->created_by === $user->id) {
+        return true;
+    }
+
+    return \App\Models\ClassUser::where('class_id', $classId)
+        ->where('user_id', $user->id)
+        ->exists();
+});

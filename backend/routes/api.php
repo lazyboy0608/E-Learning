@@ -147,6 +147,10 @@ Route::middleware(['jwt.auth', 'throttle:api'])->group(function () {
     Route::post('/classes/{class}/practices', [ClassController::class, 'assignPractice']);
     Route::delete('/classes/{class}/practices/{practice}', [ClassController::class, 'removePractice']);
 
+    // Class Announcements
+    Route::get('/classes/{class}/announcements', [ClassController::class, 'announcements']);
+    Route::post('/classes/{class}/announcements', [ClassController::class, 'storeAnnouncement']);
+
     // Users (Admin only)
     Route::middleware('role:admin')->group(function () {
         Route::get('/users', [UserController::class, 'index']);

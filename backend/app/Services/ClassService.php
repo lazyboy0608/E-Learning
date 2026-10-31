@@ -290,8 +290,42 @@ class ClassService
         return $this->classRepository->getTeachers($classId);
     }
 
-    public function addMaterial(int $classId, array $data): \App\Models\ClassMaterial
+    public function addMaterial(int $classId, array $data, ?\Illuminate\Http\UploadedFile $file = null): \App\Models\ClassMaterial
     {
+        if ($file) {
+            $originalName = $file->getClientOriginalName();
+            $fileSize = $file->getSize();
+            $extension = $file->getClientOriginalExtension() ?: 'pdf';
+            $fileName = \Illuminate\Support\Str::uuid() . '.' . $extension;
+            $subPath = "classes/{$classId}/materials";
+
+            $fileUrl = '';
+
+            // Kiểm tra cấu hình S3/MinIO
+            if (!empty(config('filesystems.disks.s3.bucket')) && !empty(config('filesystems.disks.s3.key'))) {
+                try {
+                    $this->ensureBucketPublicPolicy();
+                    $storedPath = \Illuminate\Support\Facades\Storage::disk('s3')->putFileAs($subPath, $file, $fileName, 'public');
+                    if ($storedPath) {
+                        $fileUrl = \Illuminate\Support\Facades\Storage::disk('s3')->url($storedPath);
+                    }
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning("MinIO S3 upload failed, falling back to public disk: " . $e->getMessage());
+                }
+            }
+
+            // Fallback sang public disk nếu MinIO chưa được khởi động hoặc upload lỗi
+            if (empty($fileUrl)) {
+                $storedPath = \Illuminate\Support\Facades\Storage::disk('public')->putFileAs($subPath, $file, $fileName);
+                $fileUrl = \Illuminate\Support\Facades\Storage::disk('public')->url($storedPath);
+            }
+
+            $data['file_url'] = $fileUrl;
+            $data['file_size'] = $fileSize;
+            $data['original_name'] = $originalName;
+            $data['type'] = 'pdf';
+        }
+
         $material = $this->classRepository->addMaterial($classId, $data);
 
         app(\App\Services\ActivityLogService::class)->log(
@@ -308,6 +342,29 @@ class ClassService
     {
         $material = \App\Models\ClassMaterial::find($materialId);
         $title = $material ? $material->title : 'Unknown';
+
+        // Xóa file vật lý trên MinIO hoặc Storage nếu có
+        if ($material && $material->file_url) {
+            try {
+                $fileUrl = $material->file_url;
+                $bucket = config('filesystems.disks.s3.bucket');
+                $parsedPath = parse_url($fileUrl, PHP_URL_PATH);
+
+                if ($bucket && $parsedPath && str_contains($parsedPath, $bucket . '/')) {
+                    $s3Path = substr($parsedPath, strpos($parsedPath, $bucket . '/') + strlen($bucket) + 1);
+                    if (\Illuminate\Support\Facades\Storage::disk('s3')->exists($s3Path)) {
+                        \Illuminate\Support\Facades\Storage::disk('s3')->delete($s3Path);
+                    }
+                } elseif ($parsedPath && str_contains($parsedPath, '/storage/')) {
+                    $localPath = substr($parsedPath, strpos($parsedPath, '/storage/') + strlen('/storage/'));
+                    if (\Illuminate\Support\Facades\Storage::disk('public')->exists($localPath)) {
+                        \Illuminate\Support\Facades\Storage::disk('public')->delete($localPath);
+                    }
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning("Could not delete physical file for material ID {$materialId}: " . $e->getMessage());
+            }
+        }
 
         $removed = $this->classRepository->removeMaterial($classId, $materialId);
 
@@ -326,6 +383,68 @@ class ClassService
     public function getMaterials(int $classId): \Illuminate\Database\Eloquent\Collection
     {
         return $this->classRepository->getMaterials($classId);
+    }
+
+    private function ensureBucketPublicPolicy(): void
+    {
+        static $policyConfigured = false;
+        if ($policyConfigured) {
+            return;
+        }
+
+        try {
+            $bucket = config('filesystems.disks.s3.bucket');
+            if (empty($bucket)) {
+                return;
+            }
+
+            $s3Client = \Illuminate\Support\Facades\Storage::disk('s3')->getClient();
+            $policy = json_encode([
+                'Version' => '2012-10-17',
+                'Statement' => [
+                    [
+                        'Sid' => 'PublicRead',
+                        'Effect' => 'Allow',
+                        'Principal' => '*',
+                        'Action' => ['s3:GetObject'],
+                        'Resource' => ["arn:aws:s3:::{$bucket}/*"]
+                    ]
+                ]
+            ]);
+
+            $s3Client->putBucketPolicy([
+                'Bucket' => $bucket,
+                'Policy' => $policy,
+            ]);
+
+            $policyConfigured = true;
+        } catch (\Throwable $e) {
+            // Khong lam gian doan upload neu khong the dat policy
+        }
+    }
+
+    public function getAnnouncements(int $classId, int $perPage = 20)
+    {
+        return \App\Models\ClassAnnouncement::where('class_id', $classId)
+            ->with('author:id,name,role')
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage);
+    }
+
+    public function createAnnouncement(int $classId, array $data, int $authorId): \App\Models\ClassAnnouncement
+    {
+        $announcement = \App\Models\ClassAnnouncement::create([
+            'class_id' => $classId,
+            'author_id' => $authorId,
+            'type' => $data['type'] ?? 'custom',
+            'title' => $data['title'],
+            'content' => $data['content'],
+            'data' => $data['data'] ?? null,
+        ]);
+
+        event(new \App\Events\ClassFeedUpdated($classId, $announcement));
+
+        return $announcement;
     }
 
     public function assignTest(int $classId, int $testId): array

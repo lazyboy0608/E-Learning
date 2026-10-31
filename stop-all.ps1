@@ -48,12 +48,12 @@ if (Test-Path $PID_FILE) {
 }
 
 # ============================================================================
-# Cach 2: Giai phong triet de cac Port mang (8000, 8080, 5173)
+# Cach 2: Giai phong triet de cac Port mang (8000, 8080, 5173, 9000, 9001)
 # ============================================================================
 Write-Host ""
-Write-Host "[2/3] Dang kiem tra va giai phong cac cong mang (8000, 8080, 5173)..." -ForegroundColor Yellow
+Write-Host "[2/3] Dang kiem tra va giai phong cac cong mang (8000, 8080, 5173, 9000, 9001)..." -ForegroundColor Yellow
 
-$portsToCheck = @(8000, 8080, 5173)
+$portsToCheck = @(8000, 8080, 5173, 9000, 9001)
 
 foreach ($port in $portsToCheck) {
     $connections = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
@@ -76,8 +76,21 @@ foreach ($port in $portsToCheck) {
     }
 }
 
+# Dung container Docker MinIO neu docker service dang chay
+$dockerService = Get-Service com.docker.service -ErrorAction SilentlyContinue
+if ($dockerService -and $dockerService.Status -eq 'Running') {
+    try {
+        $dockerPs = & docker ps --filter "name=smartedu-minio" --format "{{.Names}}" 2>$null
+        if ($dockerPs -match "smartedu-minio") {
+            & docker stop smartedu-minio 2>$null | Out-Null
+            Write-Host "  -> Da dung Docker container: smartedu-minio" -ForegroundColor Green
+            $killedCount++
+        }
+    } catch {}
+}
+
 # ============================================================================
-# Cach 3: Don dep cac cua so cmd chay Laravel/Reverb/Vite
+# Cach 3: Don dep cac cua so cmd chay Laravel/Reverb/Vite/MinIO
 # ============================================================================
 Write-Host ""
 Write-Host "[3/3] Dang quet va tat cac tien trinh cmd lien quan..." -ForegroundColor Yellow
@@ -86,7 +99,7 @@ $cmdProcs = Get-Process -Name "cmd" -ErrorAction SilentlyContinue
 foreach ($cmd in $cmdProcs) {
     try {
         $title = $cmd.MainWindowTitle
-        if ($title -match "Laravel Backend|Reverb WebSocket|React Frontend") {
+        if ($title -match "Laravel Backend|Reverb WebSocket|React Frontend|MinIO Storage") {
             Stop-Process -Id $cmd.Id -Force -ErrorAction SilentlyContinue
             Write-Host "  -> Da tat cua so cmd: $title (PID: $($cmd.Id))" -ForegroundColor Green
             $killedCount++
@@ -103,7 +116,7 @@ if ($killedCount -gt 0) {
 } else {
     Write-Host "  Tat ca cac dich vu da o trang thai tat tu truoc." -ForegroundColor Yellow
 }
-Write-Host "  Cac cong 8000 (Backend), 8080 (Reverb) va 5173 (Frontend) da duoc giai phong." -ForegroundColor White
+Write-Host "  Cac cong 9000 (MinIO), 8000 (Backend), 8080 (Reverb) va 5173 (Frontend) da duoc giai phong." -ForegroundColor White
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Cua so nay se tu dong dong sau 3 giay..." -ForegroundColor Gray

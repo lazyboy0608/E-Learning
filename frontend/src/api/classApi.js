@@ -12,11 +12,6 @@ export const classApi = {
     return response.data;
   },
 
-  searchClasses: async (query) => {
-    const response = await apiClient.get('/classes/search', { params: { q: query } });
-    return response.data;
-  },
-
   getClassDetail: async (classId) => {
     const response = await apiClient.get(`/classes/${classId}`);
     return response.data;
@@ -91,8 +86,28 @@ export const classApi = {
     return response.data;
   },
 
+  uploadMaterial: async (classId, formData) => {
+    const response = await apiClient.post(`/classes/${classId}/materials`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
   removeMaterial: async (classId, materialId) => {
     const response = await apiClient.delete(`/classes/${classId}/materials/${materialId}`);
+    return response.data;
+  },
+
+  // Announcements
+  getClassAnnouncements: async (classId, params = {}) => {
+    const response = await apiClient.get(`/classes/${classId}/announcements`, { params });
+    return response.data;
+  },
+
+  createClassAnnouncement: async (classId, data) => {
+    const response = await apiClient.post(`/classes/${classId}/announcements`, data);
     return response.data;
   },
 

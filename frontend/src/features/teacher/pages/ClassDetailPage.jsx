@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FiArrowLeft, FiUsers, FiFileText, FiClipboard, FiPlus, FiTrash2, FiX, FiBookOpen, FiBarChart2 } from 'react-icons/fi';
+import { FiArrowLeft, FiUsers, FiFileText, FiClipboard, FiPlus, FiTrash2, FiX, FiBookOpen, FiBarChart2, FiUploadCloud, FiExternalLink } from 'react-icons/fi';
 import TeacherLayout from '../../../components/teacher/TeacherLayout';
 import classApi from '../../../api/classApi';
 import { testApi } from '../../../api/testApi';
@@ -174,6 +174,9 @@ const ClassDetailPage = () => {  const { classId } = useParams();
   // Materials state
   const [materials, setMaterials] = useState([]);
   const [newMaterial, setNewMaterial] = useState({ title: '', description: '', file_url: '', type: 'pdf' });
+  const [materialFile, setMaterialFile] = useState(null);
+  const [uploadMethod, setUploadMethod] = useState('file'); // 'file' or 'url'
+  const [uploadingMaterial, setUploadingMaterial] = useState(false);
 
   // Tests state
   const [tests, setTests] = useState([]);
@@ -206,7 +209,19 @@ const ClassDetailPage = () => {  const { classId } = useParams();
   // Đổi u.class_pivot thành u.pivot
       setStudents(response.data.users?.filter(u => u.pivot?.role === 'student') || []);
 
-      setMaterials(response.data.materials || []);
+      if (Array.isArray(response.data.materials)) {
+        setMaterials(response.data.materials);
+      } else {
+        try {
+          const matRes = await classApi.getMaterials(classId);
+          if (matRes?.success && Array.isArray(matRes.data)) {
+            setMaterials(matRes.data);
+          }
+        } catch {
+          setMaterials([]);
+        }
+      }
+
       setTests(response.data.tests || []);
       setPractices(response.data.practices || []);
 }
@@ -247,20 +262,51 @@ const ClassDetailPage = () => {  const { classId } = useParams();
 };
 
   const handleAddMaterial = async () => {
-    if (!newMaterial.title.trim() || !newMaterial.file_url.trim()) {
-      alert('Vui lòng nhập đầy đủ thông tin');
+    if (!newMaterial.title.trim()) {
+      alert('Vui lòng nhập tiêu đề tài liệu');
+      return;
+    }
+
+    if (newMaterial.type === 'pdf' && uploadMethod === 'file' && !materialFile) {
+      alert('Vui lòng chọn tệp PDF để tải lên');
+      return;
+    }
+
+    if ((uploadMethod === 'url' || newMaterial.type !== 'pdf') && !newMaterial.file_url.trim()) {
+      alert('Vui lòng nhập đường dẫn tài liệu');
       return;
     }
 
     try {
-      await classApi.addMaterial(classId, newMaterial);
-      alert('Thêm thành công!');
+      setUploadingMaterial(true);
+      const formData = new FormData();
+      formData.append('title', newMaterial.title.trim());
+      formData.append('type', newMaterial.type);
+      if (newMaterial.description?.trim()) {
+        formData.append('description', newMaterial.description.trim());
+      }
+
+      if (newMaterial.type === 'pdf' && uploadMethod === 'file' && materialFile) {
+        formData.append('file', materialFile);
+      } else {
+        formData.append('file_url', newMaterial.file_url.trim());
+      }
+
+      const uploadRes = await classApi.uploadMaterial(classId, formData);
+      alert('Thêm tài liệu thành công!');
+      if (uploadRes?.success && uploadRes?.data) {
+        setMaterials((prev) => [uploadRes.data, ...prev]);
+      }
       setNewMaterial({ title: '', description: '', file_url: '', type: 'pdf' });
+      setMaterialFile(null);
+      setUploadMethod('file');
       setShowAddModal(false);
       fetchClassDetail();
     } catch (error) {
       console.error('Failed to add material:', error);
-      alert('Thêm thất bại!');
+      alert(error.response?.data?.message || 'Thêm tài liệu thất bại!');
+    } finally {
+      setUploadingMaterial(false);
     }
   };
 
@@ -343,6 +389,11 @@ const ClassDetailPage = () => {  const { classId } = useParams();
     setAddModalType(type);
     setShowAddModal(true);
 
+    if (type === 'material') {
+      setNewMaterial({ title: '', description: '', file_url: '', type: 'pdf' });
+      setMaterialFile(null);
+      setUploadMethod('file');
+    }
     if (type === 'test') {
       fetchAvailableTests();
     }
@@ -436,10 +487,30 @@ const ClassDetailPage = () => {  const { classId } = useParams();
             <div key={material.id} style={{ ...cardStyle, padding: '20px' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
                 <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                    <span style={{
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      textTransform: 'uppercase',
+                      padding: '2px 6px',
+                      borderRadius: '4px',
+                      backgroundColor: material.type === 'pdf' ? '#eff6ff' : '#f1f5f9',
+                      color: material.type === 'pdf' ? '#2563eb' : '#475569',
+                    }}>
+                      {material.type}
+                    </span>
+                    {material.formatted_size && (
+                      <span style={{ fontSize: '12px', color: '#6b7280' }}>
+                        {material.formatted_size}
+                      </span>
+                    )}
+                  </div>
                   <h4 style={{ fontSize: '15px', fontWeight: '600', color: '#111827', margin: '0 0 4px 0' }}>{material.title}</h4>
-                  <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>{material.type}</p>
                   {material.description && (
                     <p style={{ fontSize: '13px', color: '#4b5563', margin: '8px 0 0 0', lineHeight: '1.5' }}>{material.description}</p>
+                  )}
+                  {material.original_name && (
+                    <p style={{ fontSize: '12px', color: '#9ca3af', margin: '4px 0 0 0' }}>{material.original_name}</p>
                   )}
                 </div>
                 <button
@@ -454,9 +525,18 @@ const ClassDetailPage = () => {  const { classId } = useParams();
                 href={material.file_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{ display: 'inline-block', marginTop: '12px', fontSize: '14px', color: '#2563eb', fontWeight: '500' }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  marginTop: '12px',
+                  fontSize: '14px',
+                  color: '#2563eb',
+                  fontWeight: '500'
+                }}
                 className="hover:text-blue-800"
               >
+                <FiExternalLink size={14} />
                 Xem tài liệu →
               </a>
             </div>
@@ -776,45 +856,146 @@ const ClassDetailPage = () => {  const { classId } = useParams();
 
             {addModalType === 'material' && (
               <>
-                <ModalField label="Tiêu đề">
+                <ModalField label="Tiêu đề tài liệu">
                   <input
                     type="text"
                     value={newMaterial.title}
                     onChange={(e) => setNewMaterial({ ...newMaterial, title: e.target.value })}
-                    placeholder="Nhập tiêu đề tài liệu"
+                    placeholder="Ví dụ: Tài liệu ôn tập Chương 1"
                     style={modalInputStyle}
                     autoFocus
                   />
                 </ModalField>
-                <ModalField label="Loại">
+
+                <ModalField label="Loại tài liệu">
                   <select
                     value={newMaterial.type}
                     onChange={(e) => setNewMaterial({ ...newMaterial, type: e.target.value })}
                     style={{ ...modalInputStyle, cursor: 'pointer' }}
                   >
-                    <option value="pdf">PDF</option>
-                    <option value="video">Video</option>
-                    <option value="link">Link</option>
-                    <option value="document">Document</option>
-                    <option value="other">Khác</option>
+                    <option value="pdf">Tệp PDF (Tài liệu học tập)</option>
+                    <option value="video">Video bài giảng</option>
+                    <option value="link">Đường dẫn liên kết</option>
+                    <option value="document">Tài liệu khác</option>
                   </select>
                 </ModalField>
-                <ModalField label="Đường dẫn">
-                  <input
-                    type="text"
-                    value={newMaterial.file_url}
-                    onChange={(e) => setNewMaterial({ ...newMaterial, file_url: e.target.value })}
-                    placeholder="https://..."
-                    style={modalInputStyle}
-                  />
-                </ModalField>
-                <ModalField label="Mô tả">
+
+                {newMaterial.type === 'pdf' ? (
+                  <div style={{ marginBottom: '20px' }}>
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setUploadMethod('file')}
+                        style={{
+                          padding: '6px 12px',
+                          fontSize: '13px',
+                          fontWeight: '600',
+                          borderRadius: '6px',
+                          border: uploadMethod === 'file' ? '1px solid #2563eb' : '1px solid #e2e8f0',
+                          backgroundColor: uploadMethod === 'file' ? '#eff6ff' : '#ffffff',
+                          color: uploadMethod === 'file' ? '#2563eb' : '#64748b',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Tải tệp từ máy tính
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setUploadMethod('url')}
+                        style={{
+                          padding: '6px 12px',
+                          fontSize: '13px',
+                          fontWeight: '600',
+                          borderRadius: '6px',
+                          border: uploadMethod === 'url' ? '1px solid #2563eb' : '1px solid #e2e8f0',
+                          backgroundColor: uploadMethod === 'url' ? '#eff6ff' : '#ffffff',
+                          color: uploadMethod === 'url' ? '#2563eb' : '#64748b',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Nhập đường dẫn (URL)
+                      </button>
+                    </div>
+
+                    {uploadMethod === 'file' ? (
+                      <div>
+                        <label
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: '24px 16px',
+                            border: '2px dashed #cbd5e1',
+                            borderRadius: '10px',
+                            backgroundColor: '#f8fafc',
+                            cursor: 'pointer',
+                            textAlign: 'center',
+                            transition: 'border-color 0.15s ease',
+                          }}
+                          className="hover:border-blue-400"
+                        >
+                          <FiUploadCloud size={32} style={{ color: '#64748b', marginBottom: '8px' }} />
+                          <span style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b' }}>
+                            {materialFile ? materialFile.name : 'Nhấp để chọn tệp PDF'}
+                          </span>
+                          <span style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>
+                            {materialFile
+                              ? `${(materialFile.size / (1024 * 1024)).toFixed(2)} MB`
+                              : 'Định dạng PDF, dung lượng tối đa 20MB'}
+                          </span>
+                          <input
+                            type="file"
+                            accept=".pdf,application/pdf"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                if (file.size > 20 * 1024 * 1024) {
+                                  alert('Tệp vượt quá dung lượng tối đa 20MB!');
+                                  return;
+                                }
+                                setMaterialFile(file);
+                                if (!newMaterial.title.trim()) {
+                                  const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
+                                  setNewMaterial((prev) => ({ ...prev, title: nameWithoutExt }));
+                                }
+                              }
+                            }}
+                            style={{ display: 'none' }}
+                          />
+                        </label>
+                      </div>
+                    ) : (
+                      <ModalField label="Đường dẫn tệp PDF">
+                        <input
+                          type="text"
+                          value={newMaterial.file_url}
+                          onChange={(e) => setNewMaterial({ ...newMaterial, file_url: e.target.value })}
+                          placeholder="https://..."
+                          style={modalInputStyle}
+                        />
+                      </ModalField>
+                    )}
+                  </div>
+                ) : (
+                  <ModalField label="Đường dẫn tài liệu">
+                    <input
+                      type="text"
+                      value={newMaterial.file_url}
+                      onChange={(e) => setNewMaterial({ ...newMaterial, file_url: e.target.value })}
+                      placeholder="https://..."
+                      style={modalInputStyle}
+                    />
+                  </ModalField>
+                )}
+
+                <ModalField label="Mô tả tài liệu">
                   <textarea
                     value={newMaterial.description}
                     onChange={(e) => setNewMaterial({ ...newMaterial, description: e.target.value })}
                     rows={3}
-                    placeholder="Mô tả ngắn về tài liệu (tuỳ chọn)"
-                    style={{ ...modalInputStyle, resize: 'vertical', minHeight: '88px' }}
+                    placeholder="Mô tả ngắn gọn về tài liệu này (tuỳ chọn)"
+                    style={{ ...modalInputStyle, resize: 'vertical', minHeight: '80px' }}
                   />
                 </ModalField>
               </>
@@ -864,7 +1045,7 @@ const ClassDetailPage = () => {  const { classId } = useParams();
             <ModalFooter
               onCancel={() => setShowAddModal(false)}
               onConfirm={handleAddMaterial}
-              confirmLabel="Thêm tài liệu"
+              confirmLabel={uploadingMaterial ? 'Đang tải lên...' : 'Thêm tài liệu'}
             />
           )}
           {addModalType === 'test' && (

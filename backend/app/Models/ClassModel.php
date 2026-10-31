@@ -89,4 +89,9 @@ class ClassModel extends Model
         );
     }
 
+    public function announcements(): HasMany
+    {
+        return $this->hasMany(ClassAnnouncement::class, 'class_id');
+    }
+
 }

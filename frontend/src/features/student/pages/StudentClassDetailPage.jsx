@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FiCheckCircle, FiPlay, FiCornerDownRight, FiClock } from 'react-icons/fi';
+import { FiCheckCircle, FiPlay, FiCornerDownRight, FiClock, FiFileText, FiExternalLink } from 'react-icons/fi';
 import StudentLayout from '../../../components/student/StudentLayout';
 import ClassTabs from '../../../components/student/ClassTabs';
-import AnnouncementCard from '../../../components/student/AnnouncementCard';
+import ClassAnnouncementFeed from '../../../components/student/ClassAnnouncementFeed';
 import classApi from '../../../api/classApi';
 import { testApi } from '../../../api/testApi';
+import { getEcho } from '../../../realtime/echo';
 
 const tabOptions = [
-  { id: 'overview', label: 'Về môn học' },
+  { id: 'announcements', label: 'Thông báo lớp học' },
+  { id: 'materials', label: 'Tài liệu học tập' },
   { id: 'practices', label: 'Bài tập ôn tập' },
   { id: 'tests', label: 'Bài kiểm tra' },
   { id: 'students', label: 'Danh sách lớp' },
@@ -17,9 +19,11 @@ const tabOptions = [
 const StudentClassDetailPage = () => {
   const { classId: classIdParam, id } = useParams();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('announcements');
   const [classData, setClassData] = useState(null);
   const [myAttempts, setMyAttempts] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
+  const [materials, setMaterials] = useState([]);
   const [loading, setLoading] = useState(true);
   const classId = Number(classIdParam || id);
 
@@ -27,14 +31,54 @@ const StudentClassDetailPage = () => {
     fetchData();
   }, [classId]);
 
+  // Lắng nghe thông báo Real-time qua Reverb WebSocket
+  useEffect(() => {
+    if (!classId) return;
+
+    const echo = getEcho();
+    if (!echo) return;
+
+    const channel = echo.private(`classes.${classId}`);
+    channel.listen('.class.feed.updated', (event) => {
+      if (event && event.announcement) {
+        setAnnouncements((prev) => [
+          event.announcement,
+          ...prev.filter((a) => a.id !== event.announcement.id),
+        ]);
+
+        // Nếu sự kiện là tài liệu mới, cập nhật lại danh sách tài liệu
+        if (event.announcement.type === 'material') {
+          classApi.getMaterials(classId).then((res) => {
+            if (res && res.success) {
+              setMaterials(res.data);
+            }
+          }).catch(() => {});
+        }
+      }
+    });
+
+    return () => {
+      channel.stopListening('.class.feed.updated');
+    };
+  }, [classId]);
+
   const fetchData = async () => {
     try {
-      const [classRes, attemptsRes] = await Promise.all([
+      const [classRes, attemptsRes, announcementsRes, materialsRes] = await Promise.all([
         classApi.getClassDetail(classId),
         testApi.getMyAttempts().catch(() => ({ data: [] })),
+        classApi.getClassAnnouncements(classId).catch(() => ({ data: { data: [] } })),
+        classApi.getMaterials(classId).catch(() => ({ data: [] })),
       ]);
+
       if (classRes.success) setClassData(classRes.data);
       setMyAttempts(attemptsRes?.data || []);
+
+      const annData = announcementsRes?.data?.data || announcementsRes?.data || [];
+      setAnnouncements(annData);
+
+      const matData = materialsRes?.data || [];
+      setMaterials(matData);
     } catch (error) {
       console.error('Failed to fetch class data:', error);
     } finally {
@@ -90,8 +134,103 @@ const StudentClassDetailPage = () => {
         />
 
         <div className="class-detail-content">
-          {activeTab === 'overview' && (
-            <AnnouncementCard announcement={{ title: 'Thông báo', content: 'Chào mừng đến với lớp!' }} />
+          {activeTab === 'announcements' && (
+            <ClassAnnouncementFeed
+              announcements={announcements}
+              loading={loading}
+              onNavigateTest={handleStartTest}
+              onNavigatePractice={handleStartPractice}
+            />
+          )}
+
+          {activeTab === 'materials' && (
+            <div>
+              {materials.length === 0 ? (
+                <div style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                  padding: '48px 24px', backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', textAlign: 'center'
+                }}>
+                  <FiFileText size={40} style={{ color: '#94a3b8', marginBottom: '12px' }} />
+                  <h4 style={{ fontSize: '16px', fontWeight: '600', color: '#1e293b', margin: '0 0 6px 0' }}>
+                    Chưa có tài liệu học tập
+                  </h4>
+                  <p style={{ fontSize: '14px', color: '#64748b', margin: 0 }}>
+                    Thầy cô sẽ đăng tải tài liệu PDF và bài giảng tại đây.
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
+                  {materials.map((material) => (
+                    <div
+                      key={material.id}
+                      style={{
+                        backgroundColor: '#ffffff',
+                        borderRadius: '12px',
+                        border: '1px solid #e2e8f0',
+                        padding: '20px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+                      }}
+                    >
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                          <span style={{
+                            fontSize: '11px',
+                            fontWeight: '700',
+                            textTransform: 'uppercase',
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            backgroundColor: '#eff6ff',
+                            color: '#2563eb',
+                          }}>
+                            {material.type?.toUpperCase()}
+                          </span>
+                          {material.formatted_size && (
+                            <span style={{ fontSize: '12px', color: '#64748b' }}>
+                              {material.formatted_size}
+                            </span>
+                          )}
+                        </div>
+                        <h4 style={{ fontSize: '16px', fontWeight: '700', color: '#0f172a', margin: '0 0 6px 0' }}>
+                          {material.title}
+                        </h4>
+                        {material.description && (
+                          <p style={{ fontSize: '13px', color: '#475569', margin: '0 0 16px 0', lineHeight: '1.5' }}>
+                            {material.description}
+                          </p>
+                        )}
+                      </div>
+
+                      <a
+                        href={material.file_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          padding: '10px 16px',
+                          fontSize: '14px',
+                          fontWeight: '600',
+                          color: '#ffffff',
+                          backgroundColor: '#2563eb',
+                          borderRadius: '8px',
+                          textDecoration: 'none',
+                          marginTop: '12px',
+                        }}
+                        className="hover:bg-blue-700"
+                      >
+                        <FiExternalLink size={15} />
+                        Xem tài liệu PDF
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
 
           {activeTab === 'practices' && (

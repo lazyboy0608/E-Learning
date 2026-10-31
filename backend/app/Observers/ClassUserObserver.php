@@ -44,6 +44,25 @@ class ClassUserObserver
         );
         /*
         |------------------------------------
+        | Thông báo bảng tin lớp học (Class Announcement Feed)
+        |------------------------------------
+        */
+        $announcement = \App\Models\ClassAnnouncement::create([
+            'class_id' => $classUser->class_id,
+            'author_id' => $student->id,
+            'type' => 'student_joined',
+            'title' => 'Thành viên mới',
+            'content' => "Chào mừng bạn {$student->name} gia nhập lớp học!",
+            'data' => [
+                'student_id' => $student->id,
+                'student_name' => $student->name,
+            ],
+        ]);
+
+        event(new \App\Events\ClassFeedUpdated($classUser->class_id, $announcement));
+
+        /*
+        |------------------------------------
         | Notification cho giáo viên
         |------------------------------------
         */

@@ -2,9 +2,11 @@
 
 namespace App\Providers;
 
+use App\Models\ClassMaterial;
 use App\Models\ClassPractice;
 use App\Models\ClassTest;
 use App\Models\ClassUser;
+use App\Observers\ClassMaterialObserver;
 use App\Observers\ClassPracticeObserver;
 use App\Observers\ClassTestObserver;
 use App\Observers\ClassUserObserver;
@@ -45,6 +47,7 @@ class AppServiceProvider extends ServiceProvider
         ClassUser::observe(ClassUserObserver::class);
         ClassTest::observe(ClassTestObserver::class);
         ClassPractice::observe(ClassPracticeObserver::class);
+        ClassMaterial::observe(ClassMaterialObserver::class);
         \App\Models\Question::observe(\App\Observers\QuestionObserver::class);
 
         $this->configureRateLimiting();
