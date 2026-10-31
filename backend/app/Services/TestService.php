@@ -300,7 +300,28 @@ class TestService
                 $questionMaxScore = $question->pivot->score ?? 1;
                 $maxScore += $questionMaxScore;
 
+                $snapshot = [
+                    'id' => $question->id,
+                    'scope' => $question->scope,
+                    'type' => $question->type,
+                    'content' => $question->content,
+                    'data' => $question->data,
+                    'media_image' => $question->media_image,
+                    'media_audio' => $question->media_audio,
+                    'explanation' => $question->explanation,
+                    'max_score' => $questionMaxScore,
+                ];
+
                 if (!array_key_exists($questionId, $answers)) {
+                    $this->testRepository->createAnswer(
+                        $attemptId,
+                        $questionId,
+                        null,
+                        false,
+                        0,
+                        $snapshot
+                    );
+
                     $results[] = [
                         'question_id' => $questionId,
                         'is_correct' => false,
@@ -330,7 +351,8 @@ class TestService
                     $questionId,
                     $answer,
                     $isCorrect,
-                    $score
+                    $score,
+                    $snapshot
                 );
 
                 $totalScore += $score * $questionMaxScore;
@@ -354,6 +376,8 @@ class TestService
                     'status' => TestAttempt::STATUS_SUBMITTED,
                     'submitted_at' => now(),
                     'score' => $percentageScore,
+                    'earned_points' => $totalScore,
+                    'total_points' => $maxScore,
                 ]
             );
 
@@ -387,8 +411,9 @@ class TestService
             $totalMaxScore = (float) $test->questions->sum(fn($q) => (float)($q->pivot->score ?? 1));
 
             foreach ($attempts as $attempt) {
-                $earned = $totalMaxScore > 0 ? round(((float)($attempt->score ?? 0) / 100) * $totalMaxScore, 2) : 0;
-                $attempt->setAttribute('total_points', $totalMaxScore);
+                $totalMax = $attempt->total_points !== null ? (float)$attempt->total_points : $totalMaxScore;
+                $earned = $attempt->earned_points !== null ? (float)$attempt->earned_points : ($totalMax > 0 ? round(((float)($attempt->score ?? 0) / 100) * $totalMax, 2) : 0);
+                $attempt->setAttribute('total_points', $totalMax);
                 $attempt->setAttribute('earned_points', $earned);
             }
         } catch (\Exception $e) {
@@ -402,20 +427,28 @@ class TestService
     {
         $attempt = TestAttempt::with([
             'test.subject',
-            'test.testQuestions',
+            'test.testQuestions.question',
             'answers.question',
         ])->findOrFail($attemptId);
 
         $testQuestionMap = $attempt->test->testQuestions
             ->keyBy('question_id');
 
-        $earnedPoints = $attempt->answers
-            ->sum(function ($a) use ($testQuestionMap) {
-                $scoreRatio = $a->score ?? ($a->is_correct ? 1.0 : 0.0);
-                return $scoreRatio * ($testQuestionMap->get($a->question_id)?->score ?? 1);
-            });
-        $totalPoints = $attempt->answers
-            ->sum(fn($a) => $testQuestionMap->get($a->question_id)?->score ?? 1);
+        $earnedPoints = $attempt->earned_points !== null
+            ? (float) $attempt->earned_points
+            : $attempt->answers
+                ->sum(function ($a) use ($testQuestionMap) {
+                    $scoreRatio = $a->score ?? ($a->is_correct ? 1.0 : 0.0);
+                    $maxScore = $a->question_snapshot['max_score'] ?? ($testQuestionMap->get($a->question_id)?->score ?? 1);
+                    return $scoreRatio * $maxScore;
+                });
+
+        $totalPoints = $attempt->total_points !== null
+            ? (float) $attempt->total_points
+            : $attempt->answers
+                ->sum(function ($a) use ($testQuestionMap) {
+                    return $a->question_snapshot['max_score'] ?? ($testQuestionMap->get($a->question_id)?->score ?? 1);
+                });
 
         return [
             'attempt_id' => $attempt->id,
@@ -424,12 +457,12 @@ class TestService
             'subject' => $attempt->test->subject->name ?? null,
             'status' => $attempt->status,
             'score' => $attempt->score,
-            'earned_points' => $earnedPoints,
-            'total_points' => $totalPoints,
+            'earned_points' => round($earnedPoints, 2),
+            'total_points' => round($totalPoints, 2),
             'started_at' => $attempt->started_at,
             'submitted_at' => $attempt->submitted_at,
             'attempt_no' => $attempt->attempt_no,
-            'total_questions' => $attempt->answers->count(),
+            'total_questions' => $attempt->answers->count() > 0 ? $attempt->answers->count() : $attempt->test->testQuestions->count(),
             'correct_count' => $attempt->answers->where('is_correct', true)->count(),
         ];
     }
@@ -439,6 +472,7 @@ class TestService
         $attempt = TestAttempt::with([
             'test.subject',
             'test.questions',
+            'test.testQuestions.question',
             'answers.question'
         ])->findOrFail($attemptId);
 
@@ -447,15 +481,27 @@ class TestService
         }
 
         $questions = [];
+        $processedQuestionIds = [];
+
         foreach ($attempt->test->questions as $question) {
+            $processedQuestionIds[] = $question->id;
             $answer = $attempt->answers->firstWhere('question_id', $question->id);
-            $questionData = $question->toArray();
-            $maxScore = $question->pivot->score ?? 1;
+            $snapshot = $answer?->question_snapshot;
+
+            $content = $snapshot['content'] ?? $question->content;
+            $type = $snapshot['type'] ?? $question->type;
+            $questionData = !empty($snapshot['data']) ? $snapshot['data'] : $question->data;
+            if (is_string($questionData)) {
+                $questionData = json_decode($questionData, true) ?? [];
+            }
+            $fullQuestionArray = is_array($questionData) ? ['data' => $questionData, 'type' => $type] : $question->toArray();
+
+            $maxScore = $snapshot['max_score'] ?? ($question->pivot->score ?? 1);
             $answerScore = $answer ? ($answer->score ?? ($answer->is_correct ? 1.0 : 0.0)) : 0.0;
             $earnedPoints = $answerScore * $maxScore;
 
-            if ($question->type === 'table_fill') {
-                $rawAnswers = $questionData['data']['correct_answers'] ?? [];
+            if ($type === 'table_fill') {
+                $rawAnswers = $questionData['correct_answers'] ?? ($fullQuestionArray['data']['correct_answers'] ?? []);
                 $rightColumn = [];
                 foreach ($rawAnswers as $colData) {
                     $vals = is_array($colData) ? array_values($colData) : [$colData];
@@ -463,7 +509,7 @@ class TestService
                 }
                 $correctAnswer = $rightColumn;
             } else {
-                $correctAnswer = $this->scoringFactory->getCorrectAnswer($question->type, $questionData);
+                $correctAnswer = $this->scoringFactory->getCorrectAnswer($type, $fullQuestionArray);
             }
             $correctAnswerDisplay = is_array($correctAnswer)
                 ? implode(', ', $correctAnswer)
@@ -471,12 +517,12 @@ class TestService
 
             $questions[] = [
                 'id' => $question->id,
-                'type' => $question->type,
-                'content' => $question->content,
-                'data' => $questionData['data'],
-                'media_image' => $question->media_image,
-                'media_audio' => $question->media_audio,
-                'explanation' => $question->explanation,
+                'type' => $type,
+                'content' => $content,
+                'data' => $questionData,
+                'media_image' => $snapshot['media_image'] ?? $question->media_image,
+                'media_audio' => $snapshot['media_audio'] ?? $question->media_audio,
+                'explanation' => $snapshot['explanation'] ?? $question->explanation,
                 'user_answer' => $answer?->answer,
                 'is_correct' => $answer?->is_correct,
                 'correct_answer' => $correctAnswer,
@@ -486,14 +532,77 @@ class TestService
             ];
         }
 
+        // Include any answers for questions removed from test questions
+        foreach ($attempt->answers as $answer) {
+            if (in_array($answer->question_id, $processedQuestionIds)) {
+                continue;
+            }
+            $snapshot = $answer->question_snapshot;
+            $question = $answer->question;
+            if (!$snapshot && !$question) {
+                continue;
+            }
+
+            $content = $snapshot['content'] ?? $question?->content ?? 'Câu hỏi';
+            $type = $snapshot['type'] ?? $question?->type ?? 'multiple_choice';
+            $questionData = !empty($snapshot['data']) ? $snapshot['data'] : ($question?->data ?? []);
+            if (is_string($questionData)) {
+                $questionData = json_decode($questionData, true) ?? [];
+            }
+            $fullQuestionArray = is_array($questionData) ? ['data' => $questionData, 'type' => $type] : ($question ? $question->toArray() : ['data' => $questionData, 'type' => $type]);
+
+            $maxScore = $snapshot['max_score'] ?? 1;
+            $answerScore = $answer->score ?? ($answer->is_correct ? 1.0 : 0.0);
+            $earnedPoints = $answerScore * $maxScore;
+
+            if ($type === 'table_fill') {
+                $rawAnswers = $questionData['correct_answers'] ?? [];
+                $rightColumn = [];
+                foreach ($rawAnswers as $colData) {
+                    $vals = is_array($colData) ? array_values($colData) : [$colData];
+                    $rightColumn[] = $vals[0] ?? '';
+                }
+                $correctAnswer = $rightColumn;
+            } else {
+                $correctAnswer = $this->scoringFactory->getCorrectAnswer($type, $fullQuestionArray);
+            }
+            $correctAnswerDisplay = is_array($correctAnswer)
+                ? implode(', ', $correctAnswer)
+                : (string) ($correctAnswer ?? '');
+
+            $questions[] = [
+                'id' => $answer->question_id,
+                'type' => $type,
+                'content' => $content,
+                'data' => $questionData,
+                'media_image' => $snapshot['media_image'] ?? $question?->media_image,
+                'media_audio' => $snapshot['media_audio'] ?? $question?->media_audio,
+                'explanation' => $snapshot['explanation'] ?? $question?->explanation,
+                'user_answer' => $answer->answer,
+                'is_correct' => $answer->is_correct,
+                'correct_answer' => $correctAnswer,
+                'correct_answer_display' => $correctAnswerDisplay,
+                'max_score' => $maxScore,
+                'earned_points' => $earnedPoints,
+            ];
+        }
+
+        $totalPoints = $attempt->total_points !== null
+            ? (float) $attempt->total_points
+            : collect($questions)->sum('max_score');
+
+        $earnedPoints = $attempt->earned_points !== null
+            ? (float) $attempt->earned_points
+            : collect($questions)->sum('earned_points');
+
         return [
             'attempt_id' => $attempt->id,
             'test_id' => $attempt->test_id,
             'test_title' => $attempt->test->title,
             'subject' => $attempt->test->subject->name ?? null,
             'score' => $attempt->score,
-            'total_points' => $attempt->test->questions->sum(fn($q) => $q->pivot->score ?? 1),
-            'earned_points' => collect($questions)->sum('earned_points'),
+            'total_points' => round($totalPoints, 2),
+            'earned_points' => round($earnedPoints, 2),
             'started_at' => $attempt->started_at,
             'submitted_at' => $attempt->submitted_at,
             'questions' => $questions,
@@ -537,6 +646,18 @@ class TestService
             $questionMaxScore = $question->pivot->score ?? 1;
             $maxScore += $questionMaxScore;
 
+            $snapshot = [
+                'id' => $question->id,
+                'scope' => $question->scope,
+                'type' => $question->type,
+                'content' => $question->content,
+                'data' => $question->data,
+                'media_image' => $question->media_image,
+                'media_audio' => $question->media_audio,
+                'explanation' => $question->explanation,
+                'max_score' => $questionMaxScore,
+            ];
+
             $existingAnswer = $attempt->answers->firstWhere('question_id', $question->id);
 
             if ($existingAnswer) {
@@ -552,22 +673,34 @@ class TestService
                 );
                 $existingAnswer->is_correct = $isCorrect;
                 $existingAnswer->score = $score;
+                $existingAnswer->question_snapshot = $snapshot;
                 if ($existingAnswer->answer === null) {
                     $existingAnswer->answer = [];
                 }
                 $existingAnswer->save();
 
                 $totalScore += $score * $questionMaxScore;
+            } else {
+                $this->testRepository->createAnswer(
+                    $attemptId,
+                    $question->id,
+                    null,
+                    false,
+                    0,
+                    $snapshot
+                );
             }
         }
 
-        $totalPoints = $attempt->test->questions->sum(fn($q) => $q->pivot->score ?? 1);
+        $totalPoints = $maxScore > 0 ? $maxScore : $attempt->test->questions->sum(fn($q) => $q->pivot->score ?? 1);
         $percentageScore = $totalPoints > 0 ? ($totalScore / $totalPoints) * 100 : 0;
 
         $this->testRepository->updateAttempt($attemptId, [
             'status' => TestAttempt::STATUS_EXPIRED,
             'submitted_at' => now(),
             'score' => round($percentageScore, 2),
+            'earned_points' => round($totalScore, 2),
+            'total_points' => round($totalPoints, 2),
         ]);
     }
 

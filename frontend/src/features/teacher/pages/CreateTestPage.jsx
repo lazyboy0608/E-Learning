@@ -204,6 +204,16 @@ export function CreateTestPage() {
     });
   };
 
+  const handleSelectAllClasses = () => {
+    setFormData(prev => {
+      const allSelected = (prev.class_ids || []).length === classes.length;
+      return {
+        ...prev,
+        class_ids: allSelected ? [] : classes.map(c => c.id)
+      };
+    });
+  };
+
   if (loading) {
     return (
       <TeacherLayout pageTitle="Đang tải...">
@@ -445,29 +455,100 @@ export function CreateTestPage() {
               </div>
 
               <div>
-                <label
-                  style={{
-                    display: "block",
-                    textTransform: "uppercase",
-                    fontSize: "11px",
-                    fontWeight: "bold",
-                    color: "#64748b",
-                    letterSpacing: "0.05em",
-                    marginBottom: "6px",
-                  }}
-                >
-                  Lớp áp dụng
-                </label>
-                {classes.map((cls) => (
-                  <label key={cls.id}>
-                    <input
-                      type="checkbox"
-                      checked={(formData.class_ids || []).includes(cls.id)}
-                      onChange={() => toggleClass(cls.id)}
-                    />
-                    {cls.name}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <label
+                    style={{
+                      display: "block",
+                      textTransform: "uppercase",
+                      fontSize: "11px",
+                      fontWeight: "bold",
+                      color: "#64748b",
+                      letterSpacing: "0.05em",
+                      margin: 0
+                    }}
+                  >
+                    Lớp áp dụng <span style={{ color: '#94a3b8', fontWeight: '500', textTransform: 'none' }}>({(formData.class_ids || []).length}/{classes.length})</span>
                   </label>
-                ))}
+                  {classes.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleSelectAllClasses}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#2563eb',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        padding: 0
+                      }}
+                    >
+                      {(formData.class_ids || []).length === classes.length ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+                    </button>
+                  )}
+                </div>
+
+                <div style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '8px',
+                  backgroundColor: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '12px',
+                  padding: '10px 12px',
+                  minHeight: '44px',
+                  alignItems: 'center',
+                  boxSizing: 'border-box'
+                }}>
+                  {classes.length === 0 ? (
+                    <span style={{ fontSize: '13px', color: '#94a3b8', fontStyle: 'italic' }}>
+                      Chưa có lớp học nào được tạo.
+                    </span>
+                  ) : (
+                    classes.map((cls) => {
+                      const isSelected = (formData.class_ids || []).includes(cls.id);
+                      return (
+                        <button
+                          key={cls.id}
+                          type="button"
+                          onClick={() => toggleClass(cls.id)}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '7px',
+                            padding: '6px 12px',
+                            borderRadius: '8px',
+                            border: isSelected ? '1.5px solid #2563eb' : '1px solid #cbd5e1',
+                            backgroundColor: isSelected ? '#eff6ff' : '#ffffff',
+                            color: isSelected ? '#1d4ed8' : '#334155',
+                            fontSize: '13px',
+                            fontWeight: isSelected ? '600' : '500',
+                            cursor: 'pointer',
+                            boxShadow: isSelected ? '0 1px 2px rgba(37, 99, 235, 0.12)' : '0 1px 2px rgba(0,0,0,0.02)',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          <div style={{
+                            width: '16px',
+                            height: '16px',
+                            borderRadius: '4px',
+                            border: isSelected ? 'none' : '1.5px solid #94a3b8',
+                            backgroundColor: isSelected ? '#2563eb' : '#ffffff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#ffffff',
+                            fontSize: '11px',
+                            fontWeight: '700'
+                          }}>
+                            {isSelected ? '✓' : ''}
+                          </div>
+                          <span>{cls.name}</span>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
               </div>
             </div>
 

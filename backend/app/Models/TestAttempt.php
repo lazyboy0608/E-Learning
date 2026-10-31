@@ -20,6 +20,8 @@ class TestAttempt extends Model
         'expired_at',
         'status',
         'score',
+        'earned_points',
+        'total_points',
         'tab_switch_count',
     ];
 
@@ -28,6 +30,8 @@ class TestAttempt extends Model
         'submitted_at' => 'datetime',
         'expired_at' => 'datetime',
         'score' => 'float',
+        'earned_points' => 'float',
+        'total_points' => 'float',
         'tab_switch_count' => 'integer',
     ];
 

@@ -2,7 +2,10 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiSearch, FiPlus, FiEdit2, FiTrash2, FiFileText, FiInbox } from 'react-icons/fi';
 import TeacherLayout from '../../../components/teacher/TeacherLayout';
+import Pagination from '../../../components/common/Pagination';
 import questionApi from '../../../api/questionApi';
+
+const ITEMS_PER_PAGE = 10;
 
 const QuestionListPage = () => {
   const navigate = useNavigate();
@@ -10,6 +13,7 @@ const QuestionListPage = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     fetchQuestions();
@@ -18,7 +22,7 @@ const QuestionListPage = () => {
   const fetchQuestions = async () => {
     try {
       setLoading(true);
-      const response = await questionApi.getClassQuestions();
+      const response = await questionApi.getClassQuestions({ per_page: 1000 });
       if (response.success) {
         setQuestions(response.data || []);
       }
@@ -41,6 +45,17 @@ const QuestionListPage = () => {
     }
   };
 
+  // Reset về trang 1 khi lọc hoặc tìm kiếm
+  const handleSearchChange = (e) => {
+    setSearchQuery(e.target.value);
+    setCurrentPage(1);
+  };
+
+  const handleFilterTypeChange = (e) => {
+    setFilterType(e.target.value);
+    setCurrentPage(1);
+  };
+
   const filteredQuestions = useMemo(() => {
     return questions.filter(question => {
       const matchesSearch = question.content?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -48,6 +63,12 @@ const QuestionListPage = () => {
       return matchesSearch && matchesType;
     });
   }, [questions, searchQuery, filterType]);
+
+  // Phân trang 10 câu hỏi/trang
+  const paginatedQuestions = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredQuestions.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredQuestions, currentPage]);
 
   const getTypeBadge = (type) => {
     const badges = {
@@ -85,11 +106,14 @@ const QuestionListPage = () => {
       <div style={{ display: 'block', width: '100%', maxWidth: '1152px', margin: '0 auto', padding: '24px', boxSizing: 'border-box', textAlign: 'left' }}>
 
         {/* Tầng 1: Tiêu đề */}
-        <div style={{ display: 'flex', justifyContent: 'between', alignItems: 'center', width: '100%', marginBottom: '24px', paddingBottom: '16px', borderBottom: '1px solid #f3f4f6' }} className="justify-between">
-          <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#111827', margin: '0' }}>Quản lý câu hỏi</h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: '24px', paddingBottom: '16px', borderBottom: '1px solid #f3f4f6' }}>
+          <div>
+            <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#111827', margin: '0 0 4px 0' }}>Quản lý câu hỏi</h1>
+            <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>Ngân hàng câu hỏi của giáo viên phục vụ tạo bài kiểm tra và bài ôn tập</p>
+          </div>
           <button
             onClick={() => navigate('/teacher/questions/create')}
-            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', backgroundColor: '#2563eb', color: '#ffffff', fontWeight: '600', borderRadius: '8px', border: 'none', cursor: 'pointer', shadow: '0 1px 2px 0 rgba(0,0,0,0.05)', whiteSpace: 'nowrap' }}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', backgroundColor: '#2563eb', color: '#ffffff', fontWeight: '600', borderRadius: '8px', border: 'none', cursor: 'pointer', boxShadow: '0 1px 2px 0 rgba(0,0,0,0.05)', whiteSpace: 'nowrap' }}
           >
             <FiPlus style={{ fontSize: '18px' }} />
             Tạo câu hỏi mới
@@ -103,16 +127,16 @@ const QuestionListPage = () => {
               type="text"
               placeholder="Tìm kiếm theo nội dung câu hỏi..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={handleSearchChange}
               style={{ width: '100%', paddingLeft: '40px', paddingRight: '16px', paddingTop: '8px', paddingBottom: '8px', fontSize: '14px', border: '1px solid #d1d5db', borderRadius: '8px', outline: 'none', color: '#374151', boxSizing: 'border-box' }}
             />
             <FiSearch style={{ position: 'absolute', left: '12px', top: '11px', color: '#9ca3af', fontSize: '16px' }} />
           </div>
 
-          <div style={{ display: 'flex', gap: '12px', shrink: '0' }}>
+          <div style={{ display: 'flex', gap: '12px', flexShrink: 0 }}>
             <select
               value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
+              onChange={handleFilterTypeChange}
               style={{ minWidth: '180px', padding: '8px 12px', fontSize: '14px', border: '1px solid #d1d5db', borderRadius: '8px', outline: 'none', backgroundColor: '#ffffff', color: '#374151', cursor: 'pointer' }}
             >
               <option value="all">Tất cả loại câu hỏi</option>
@@ -158,7 +182,7 @@ const QuestionListPage = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 bg-white">
-                    {filteredQuestions.map((question) => (
+                    {paginatedQuestions.map((question) => (
                       <tr key={question.id} className="hover:bg-gray-50 transition-colors">
                         <td className="px-6 py-4 text-sm text-gray-900 max-w-md truncate font-medium">
                           {question.content}
@@ -194,6 +218,15 @@ const QuestionListPage = () => {
                   </tbody>
                 </table>
               </div>
+
+              {/* THANH PHÂN TRANG (10 câu hỏi / trang) */}
+              <Pagination
+                currentPage={currentPage}
+                totalItems={filteredQuestions.length}
+                itemsPerPage={ITEMS_PER_PAGE}
+                onPageChange={(page) => setCurrentPage(page)}
+                themeColor="blue"
+              />
             </div>
           )}
         </div>

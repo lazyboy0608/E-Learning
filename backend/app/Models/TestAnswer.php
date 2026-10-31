@@ -18,12 +18,14 @@ class TestAnswer extends Model
         'answer',
         'is_correct',
         'score',
+        'question_snapshot',
     ];
 
     protected $casts = [
         'answer' => 'array',
         'is_correct' => 'boolean',
         'score' => 'float',
+        'question_snapshot' => 'array',
     ];
 
     public function attempt(): BelongsTo
@@ -33,6 +35,6 @@ class TestAnswer extends Model
 
     public function question(): BelongsTo
     {
-        return $this->belongsTo(Question::class);
+        return $this->belongsTo(Question::class)->withTrashed();
     }
 }

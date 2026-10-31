@@ -44,7 +44,8 @@ class Test extends Model
     public function questions(): BelongsToMany
     {
         return $this->belongsToMany(Question::class, 'test_questions')
-            ->withPivot(['order_index', 'score']);
+            ->withPivot(['order_index', 'score'])
+            ->withTrashed();
     }
 
     public function testQuestions(): HasMany

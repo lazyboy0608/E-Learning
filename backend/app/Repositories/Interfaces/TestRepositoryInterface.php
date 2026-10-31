@@ -20,6 +20,6 @@ interface TestRepositoryInterface
     public function deleteTest(int $id);
     public function createAttempt(int $userId, int $testId);
     public function updateAttempt(int $attemptId, array $data);
-    public function createAnswer(int $attemptId, int $questionId, mixed $answer, bool $isCorrect, float $score = 0.0);
+    public function createAnswer(int $attemptId, int $questionId, mixed $answer, bool $isCorrect, float $score = 0.0, ?array $questionSnapshot = null);
     public function getAttemptWithAnswers(int $attemptId);
 }

@@ -324,18 +324,24 @@ class TestRepository implements TestRepositoryInterface
         return $attempt;
     }
 
-    public function createAnswer(int $attemptId, int $questionId, mixed $answer, bool $isCorrect, float $score = 0.0): Model
+    public function createAnswer(int $attemptId, int $questionId, mixed $answer, bool $isCorrect, float $score = 0.0, ?array $questionSnapshot = null): Model
     {
+        $payload = [
+            'answer' => $answer,
+            'is_correct' => $isCorrect,
+            'score' => $score,
+        ];
+
+        if ($questionSnapshot !== null) {
+            $payload['question_snapshot'] = $questionSnapshot;
+        }
+
         return TestAnswer::updateOrCreate(
             [
                 'attempt_id' => $attemptId,
                 'question_id' => $questionId,
             ],
-            [
-                'answer' => $answer,
-                'is_correct' => $isCorrect,
-                'score' => $score,
-            ]
+            $payload
         );
     }
 

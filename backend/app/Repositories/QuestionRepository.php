@@ -28,9 +28,11 @@ class QuestionRepository
             $query->where('type', $filters['type']);
         }
 
+        $perPage = isset($filters['per_page']) ? (int)$filters['per_page'] : 1000;
+
         return $query
             ->orderByDesc('id')
-            ->paginate(20);
+            ->paginate($perPage);
     }
 
     public function getById(int $id): Question
