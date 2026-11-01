@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Test\StoreTestRequest;
 use App\Http\Requests\Test\UpdateTestRequest;
 use App\Http\Requests\Test\SubmitTestRequest;
+use App\Models\TestAttempt;
 use App\Services\TestService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -145,16 +146,32 @@ class TestController extends Controller
     public function submit(SubmitTestRequest $request, int $id): JsonResponse
     {
         $user = $request->user();
-        $attemptId = $request->input('attempt_id');
+        $attemptId = (int) $request->input('attempt_id');
         $answers = $request->input('answers', []);
 
-        $result = $this->testService->submitTest($attemptId, $answers);
+        try {
+            $attempt = TestAttempt::findOrFail($attemptId);
 
-        if (!$result['success']) {
-            return $this->errorResponse($result['error'], 400);
+            if ($attempt->user_id !== $user->id) {
+                return $this->errorResponse('Bạn không có quyền nộp bài cho lượt làm bài này.', 403);
+            }
+
+            if ($attempt->test_id !== $id) {
+                return $this->errorResponse('Lượt làm bài không khớp với bài kiểm tra này.', 400);
+            }
+
+            $result = $this->testService->submitTest($attemptId, $answers);
+
+            if (!$result['success']) {
+                return $this->errorResponse($result['error'], 400);
+            }
+
+            return $this->successResponse($result, 'Nộp bài test thành công');
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->errorResponse('Lượt làm bài không tồn tại', 404);
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
         }
-
-        return $this->successResponse($result, 'Nộp bài test thành công');
     }
 
     public function allAttempts(Request $request, int $id): JsonResponse
@@ -186,22 +203,42 @@ class TestController extends Controller
         return $this->successResponse($attempts, 'Lấy lịch sử làm bài thành công');
     }
 
-    public function results(int $attemptId): JsonResponse
+    public function results(Request $request, int $attemptId): JsonResponse
     {
+        $user = $request->user();
+
         try {
+            $attempt = TestAttempt::with('test')->findOrFail($attemptId);
+
+            if (!$attempt->canAccess($user)) {
+                return $this->errorResponse('Bạn không có quyền xem kết quả của lượt làm bài này.', 403);
+            }
+
             $results = $this->testService->getResults($attemptId);
 
             return $this->successResponse($results, 'Lấy kết quả làm bài thành công');
-        } catch (\Exception $e) {
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return $this->errorResponse('Lượt làm bài không tồn tại', 404);
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
         }
     }
 
-    public function review(int $attemptId): JsonResponse
+    public function review(Request $request, int $attemptId): JsonResponse
     {
+        $user = $request->user();
+
         try {
+            $attempt = TestAttempt::with('test')->findOrFail($attemptId);
+
+            if (!$attempt->canAccess($user)) {
+                return $this->errorResponse('Bạn không có quyền xem chi tiết bài làm này.', 403);
+            }
+
             $review = $this->testService->getReview($attemptId);
             return $this->successResponse($review, 'Lấy bài làm chi tiết thành công');
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->errorResponse('Lượt làm bài không tồn tại', 404);
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
         }
@@ -247,14 +284,37 @@ class TestController extends Controller
         );
     }
 
-    public function saveAnswer(Request $request)
+    public function saveAnswer(Request $request): JsonResponse
     {
-        $this->testService->saveAnswer(
-            $request->attempt_id,
-            $request->question_id,
-            $request->answer
-        );
-        return $this->successResponse(null, 'Lưu câu trả lời thành công');
+        $validated = $request->validate([
+            'attempt_id' => 'required|integer',
+            'question_id' => 'required|integer',
+            'answer' => 'nullable',
+        ]);
+
+        try {
+            $attempt = TestAttempt::findOrFail($validated['attempt_id']);
+
+            if ($attempt->user_id !== $request->user()->id) {
+                return $this->errorResponse('Bạn không có quyền cập nhật đáp án cho lượt làm bài này.', 403);
+            }
+
+            if (!$attempt->isInProgress()) {
+                return $this->errorResponse('Lượt làm bài đã kết thúc hoặc không còn hiệu lực.', 400);
+            }
+
+            $this->testService->saveAnswer(
+                $validated['attempt_id'],
+                $validated['question_id'],
+                $validated['answer'] ?? null
+            );
+
+            return $this->successResponse(null, 'Lưu câu trả lời thành công');
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->errorResponse('Lượt làm bài không tồn tại', 404);
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
+        }
     }
 
     public function classScores(Request $request, int $classId, int $testId): JsonResponse
@@ -277,17 +337,27 @@ class TestController extends Controller
 
     public function reportTabSwitch(Request $request, int $attemptId): JsonResponse
     {
-        $attempt = \App\Models\TestAttempt::findOrFail($attemptId);
-        
-        // Chỉ cho phép học sinh sở hữu lượt thi và lượt thi đang in_progress ghi nhận
-        if ($attempt->user_id !== $request->user()->id || $attempt->status !== \App\Models\TestAttempt::STATUS_IN_PROGRESS) {
-            return $this->errorResponse('Yêu cầu không hợp lệ hoặc lượt thi đã kết thúc.', 400);
+        try {
+            $attempt = TestAttempt::findOrFail($attemptId);
+            
+            // Chỉ cho phép học sinh sở hữu lượt thi ghi nhận
+            if ($attempt->user_id !== $request->user()->id) {
+                return $this->errorResponse('Bạn không có quyền thao tác trên lượt làm bài này.', 403);
+            }
+
+            if ($attempt->status !== TestAttempt::STATUS_IN_PROGRESS) {
+                return $this->errorResponse('Lượt thi đã kết thúc hoặc không còn hiệu lực.', 400);
+            }
+
+            $attempt->increment('tab_switch_count');
+
+            return $this->successResponse([
+                'tab_switch_count' => $attempt->tab_switch_count
+            ], 'Ghi nhận chuyển tab thành công.');
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->errorResponse('Lượt làm bài không tồn tại', 404);
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
         }
-
-        $attempt->increment('tab_switch_count');
-
-        return $this->successResponse([
-            'tab_switch_count' => $attempt->tab_switch_count
-        ], 'Ghi nhận chuyển tab thành công.');
     }
 }

@@ -76,8 +76,9 @@ class BackendImprovementsTest extends TestCase
             'tab_switch_count' => 0,
         ]);
 
-        // Call the API authenticated
-        $response = $this->actingAs($user, 'sanctum')
+        // Call the API authenticated with JWT access token
+        $token = app(\App\Services\JwtService::class)->generateAccessToken($user);
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
             ->postJson("/api/tests/attempts/{$attempt->id}/tab-switch");
 
         $response->assertStatus(200);

@@ -18,7 +18,7 @@ class RegisterRequest extends FormRequest
             'email' => ['required', 'email', 'unique:users,email'],
             'phone' => ['required', 'string', 'max:20'],
             'password' => ['required', 'string', 'min:6'],
-            'role' => ['required', 'in:student,teacher,admin'],
+            'role' => ['required', 'in:student,teacher'],
         ];
     }
 
@@ -33,7 +33,7 @@ class RegisterRequest extends FormRequest
             'password.required' => 'Vui lòng nhập mật khẩu.',
             'password.min' => 'Mật khẩu phải có ít nhất 6 ký tự.',
             'role.required' => 'Vui lòng chọn vai trò.',
-            'role.in' => 'Vai trò không hợp lệ.',
+            'role.in' => 'Vai trò đăng ký không hợp lệ (chỉ chấp nhận học sinh hoặc giáo viên).',
         ];
     }
 }

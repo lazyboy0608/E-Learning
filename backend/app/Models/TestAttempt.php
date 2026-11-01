@@ -63,4 +63,28 @@ class TestAttempt extends Model
     {
         return $this->status === self::STATUS_IN_PROGRESS;
     }
+
+    /**
+     * Kiểm tra người dùng có quyền truy cập / xem kết quả của lượt làm bài này hay không.
+     * Cho phép:
+     * 1. Chính thí sinh làm bài thi ($this->user_id === $user->id)
+     * 2. Giáo viên tạo bài test này ($this->test->created_by === $user->id)
+     * 3. Quản trị viên hệ thống ($user->role === 'admin')
+     */
+    public function canAccess(User $user): bool
+    {
+        if ($user->role === 'admin') {
+            return true;
+        }
+
+        if ($this->user_id === $user->id) {
+            return true;
+        }
+
+        if ($this->test && $this->test->created_by === $user->id) {
+            return true;
+        }
+
+        return false;
+    }
 }

@@ -97,6 +97,14 @@ class AuthService
 
     public function register(array $data, ?string $ip = null, ?string $userAgent = null): array
     {
+        if (($data['role'] ?? '') === 'admin') {
+            return [
+                'success' => false,
+                'message' => 'Không được phép đăng ký tài khoản quản trị viên công khai.',
+                'status'  => 403,
+            ];
+        }
+
         $existingUser = User::where('email', $data['email'])
             ->orWhere('phone', $data['phone'])
             ->first();
