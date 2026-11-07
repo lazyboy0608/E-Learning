@@ -23,6 +23,8 @@ class TestAttempt extends Model
         'earned_points',
         'total_points',
         'tab_switch_count',
+        'question_order',
+        'option_orders',
     ];
 
     protected $casts = [
@@ -33,6 +35,8 @@ class TestAttempt extends Model
         'earned_points' => 'float',
         'total_points' => 'float',
         'tab_switch_count' => 'integer',
+        'question_order' => 'array',
+        'option_orders' => 'array',
     ];
 
     public const STATUS_IN_PROGRESS = 'in_progress';

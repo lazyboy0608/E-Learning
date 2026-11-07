@@ -300,12 +300,22 @@ class TestService
                 $questionMaxScore = $question->pivot->score ?? 1;
                 $maxScore += $questionMaxScore;
 
+                $questionData = $question->toArray();
+                if (in_array($question->type, ['mcq', 'multiple_choice']) && !empty($attempt->option_orders[$questionId])) {
+                    $orderMap = array_flip($attempt->option_orders[$questionId]);
+                    $options = $this->normalizeOptions($questionData['data']['options'] ?? []);
+                    usort($options, fn($a, $b) => ($orderMap[$a['id']] ?? 999) <=> ($orderMap[$b['id']] ?? 999));
+                    if (isset($questionData['data']) && is_array($questionData['data'])) {
+                        $questionData['data']['options'] = $options;
+                    }
+                }
+
                 $snapshot = [
                     'id' => $question->id,
                     'scope' => $question->scope,
                     'type' => $question->type,
                     'content' => $question->content,
-                    'data' => $question->data,
+                    'data' => $questionData['data'] ?? $question->data,
                     'media_image' => $question->media_image,
                     'media_audio' => $question->media_audio,
                     'explanation' => $question->explanation,
@@ -483,7 +493,13 @@ class TestService
         $questions = [];
         $processedQuestionIds = [];
 
-        foreach ($attempt->test->questions as $question) {
+        $testQuestions = $attempt->test->questions;
+        if (!empty($attempt->question_order) && is_array($attempt->question_order)) {
+            $orderMap = array_flip($attempt->question_order);
+            $testQuestions = $testQuestions->sortBy(fn($q) => $orderMap[$q->id] ?? 9999)->values();
+        }
+
+        foreach ($testQuestions as $question) {
             $processedQuestionIds[] = $question->id;
             $answer = $attempt->answers->firstWhere('question_id', $question->id);
             $snapshot = $answer?->question_snapshot;
@@ -646,12 +662,22 @@ class TestService
             $questionMaxScore = $question->pivot->score ?? 1;
             $maxScore += $questionMaxScore;
 
+            $questionData = $question->toArray();
+            if (in_array($question->type, ['mcq', 'multiple_choice']) && !empty($attempt->option_orders[$question->id])) {
+                $orderMap = array_flip($attempt->option_orders[$question->id]);
+                $options = $this->normalizeOptions($questionData['data']['options'] ?? []);
+                usort($options, fn($a, $b) => ($orderMap[$a['id']] ?? 999) <=> ($orderMap[$b['id']] ?? 999));
+                if (isset($questionData['data']) && is_array($questionData['data'])) {
+                    $questionData['data']['options'] = $options;
+                }
+            }
+
             $snapshot = [
                 'id' => $question->id,
                 'scope' => $question->scope,
                 'type' => $question->type,
                 'content' => $question->content,
-                'data' => $question->data,
+                'data' => $questionData['data'] ?? $question->data,
                 'media_image' => $question->media_image,
                 'media_audio' => $question->media_audio,
                 'explanation' => $question->explanation,
@@ -704,9 +730,105 @@ class TestService
         ]);
     }
 
+    public function normalizeOptions(mixed $rawOptions): array
+    {
+        if (is_string($rawOptions)) {
+            $rawOptions = json_decode($rawOptions, true) ?? [];
+        }
+        if (!is_array($rawOptions)) {
+            return [];
+        }
+
+        $normalized = [];
+        $index = 0;
+        foreach ($rawOptions as $key => $val) {
+            if (is_array($val) && isset($val['id'])) {
+                $normalized[] = [
+                    'id' => (string) $val['id'],
+                    'text' => (string) ($val['text'] ?? $val['content'] ?? ''),
+                ];
+            } elseif (is_array($val) && isset($val['text'])) {
+                $id = is_string($key) && !is_numeric($key) ? $key : chr(97 + $index);
+                $normalized[] = [
+                    'id' => (string) $id,
+                    'text' => (string) $val['text'],
+                ];
+            } elseif (is_string($val) || is_numeric($val)) {
+                $id = is_string($key) && !is_numeric($key) ? $key : chr(97 + $index);
+                $normalized[] = [
+                    'id' => (string) $id,
+                    'text' => (string) $val,
+                ];
+            }
+            $index++;
+        }
+
+        return $normalized;
+    }
+
     private function formatAttemptResponse(TestAttempt $attempt): array
     {
         $test = $this->testRepository->getTestWithQuestions($attempt->test_id);
+
+        // 1. Question order handling (Shuffle questions if enabled)
+        $testQuestions = $test->questions;
+        if (!empty($attempt->question_order) && is_array($attempt->question_order)) {
+            $orderMap = array_flip($attempt->question_order);
+            $testQuestions = $testQuestions->sortBy(fn($q) => $orderMap[$q->id] ?? 9999)->values();
+        } else {
+            if ($test->shuffle_questions) {
+                $testQuestions = $testQuestions->shuffle()->values();
+            } else {
+                $testQuestions = $testQuestions->sortBy(fn($q) => $q->pivot->order_index ?? $q->order_index ?? $q->id)->values();
+            }
+            $attempt->question_order = $testQuestions->pluck('id')->values()->all();
+            $attempt->save();
+        }
+
+        // 2. Options order handling (Shuffle options if enabled)
+        $optionOrders = $attempt->option_orders ?? [];
+        $optionOrdersModified = false;
+
+        $questions = $testQuestions->map(function ($question, $idx) use ($test, &$optionOrders, &$optionOrdersModified) {
+            $data = $question->data;
+            if (is_string($data)) {
+                $data = json_decode($data, true) ?? [];
+            }
+
+            if (in_array($question->type, ['mcq', 'multiple_choice']) && isset($data['options'])) {
+                $options = $this->normalizeOptions($data['options']);
+
+                if ($test->shuffle_options) {
+                    if (!empty($optionOrders[$question->id]) && is_array($optionOrders[$question->id])) {
+                        // Re-order options according to saved order for this attempt
+                        $orderMap = array_flip($optionOrders[$question->id]);
+                        usort($options, fn($a, $b) => ($orderMap[$a['id']] ?? 999) <=> ($orderMap[$b['id']] ?? 999));
+                    } else {
+                        // Shuffle options and persist
+                        shuffle($options);
+                        $optionOrders[$question->id] = array_column($options, 'id');
+                        $optionOrdersModified = true;
+                    }
+                }
+                $data['options'] = $options;
+            }
+
+            return [
+                'id' => $question->id,
+                'type' => $question->type,
+                'content' => $question->content,
+                'data' => $data,
+                'media_image' => $question->media_image,
+                'media_audio' => $question->media_audio,
+                'score' => $question->pivot->score ?? $question->score ?? 1,
+                'order_index' => $idx + 1,
+            ];
+        });
+
+        if ($optionOrdersModified) {
+            $attempt->option_orders = $optionOrders;
+            $attempt->save();
+        }
 
         // Get existing answers for resume
         $existingAnswers = TestAnswer::where('attempt_id', $attempt->id)
@@ -714,19 +836,6 @@ class TestService
             ->keyBy('question_id')
             ->map(fn($a) => $a->answer)
             ->toArray();
-
-        $questions = $test->questions->map(function ($question) {
-            return [
-                'id' => $question->id,
-                'type' => $question->type,
-                'content' => $question->content,
-                'data' => $question->data,
-                'media_image' => $question->media_image,
-                'media_audio' => $question->media_audio,
-                'score' => $question->score ?? 1,
-                'order_index' => $question->order_index,
-            ];
-        });
 
         return [
             'success' => true,

@@ -24,11 +24,15 @@ class Test extends Model
         'expires_at',
         'max_attempts',
         'duration',
+        'shuffle_questions',
+        'shuffle_options',
     ];
 
     protected $casts = [
         'expires_at' => 'datetime',
         'is_active' => 'boolean',
+        'shuffle_questions' => 'boolean',
+        'shuffle_options' => 'boolean',
     ];
 
     public function subject(): BelongsTo

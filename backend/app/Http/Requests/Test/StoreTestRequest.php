@@ -22,6 +22,8 @@ class StoreTestRequest extends FormRequest
             'expires_at' => 'nullable|date|after:now',
             'max_attempts' => 'nullable|integer|min:1',
             'duration' => 'nullable|integer|min:1',
+            'shuffle_questions' => 'nullable|boolean',
+            'shuffle_options' => 'nullable|boolean',
             'class_ids' => [
                 'nullable',
                 'array',

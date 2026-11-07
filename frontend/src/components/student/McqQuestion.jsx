@@ -84,8 +84,19 @@ export function McqQuestion({ question, onAnswer, answer = null, showResult = fa
     onAnswer(newSelected.length === 1 ? newSelected[0] : newSelected);
   };
 
-  const correctAnswerDisplay = result?.correct_answer_display
-    ?? (Array.isArray(correctAnswers) ? correctAnswers.map(a => a.toUpperCase()).join(', ') : '');
+  const correctAnswerDisplay = (() => {
+    if (Array.isArray(correctAnswers) && correctAnswers.length > 0) {
+      return correctAnswers.map(caId => {
+        const optIdx = options.findIndex(o => String(o.id) === String(caId));
+        if (optIdx !== -1) {
+          const letter = String.fromCharCode(65 + optIdx);
+          return `${letter}${options[optIdx].text ? ': ' + options[optIdx].text : ''}`;
+        }
+        return String(caId).toUpperCase();
+      }).join(', ');
+    }
+    return result?.correct_answer_display || '';
+  })();
 
   const getResultIcon = (option) => {
     const isSelected = selectedAnswers.includes(option.id);
@@ -130,34 +141,37 @@ export function McqQuestion({ question, onAnswer, answer = null, showResult = fa
 
       {/* Options */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        {options.map((option) => (
-          <button
-            key={option.id}
-            onClick={() => handleToggle(option.id)}
-            disabled={showResult}
-            style={getOptionStyle(option, selectedAnswers, showResult, correctAnswers)}
-            onMouseEnter={e => {
-              if (!showResult && !selectedAnswers.includes(option.id)) {
-                e.currentTarget.style.borderColor = '#93c5fd';
-                e.currentTarget.style.backgroundColor = '#f8faff';
-              }
-            }}
-            onMouseLeave={e => {
-              if (!showResult && !selectedAnswers.includes(option.id)) {
-                e.currentTarget.style.borderColor = '#e5e7eb';
-                e.currentTarget.style.backgroundColor = '#ffffff';
-              }
-            }}
-          >
-            <span style={getCircleStyle(option, selectedAnswers, showResult, correctAnswers)}>
-              {option.id.toUpperCase()}
-            </span>
-            <span style={{ fontSize: '15px', color: '#111827', fontWeight: '500', flex: 1 }}>
-              {option.text}
-            </span>
-            {showResult && getResultIcon(option)}
-          </button>
-        ))}
+        {options.map((option, index) => {
+          const displayLabel = String.fromCharCode(65 + index);
+          return (
+            <button
+              key={option.id}
+              onClick={() => handleToggle(option.id)}
+              disabled={showResult}
+              style={getOptionStyle(option, selectedAnswers, showResult, correctAnswers)}
+              onMouseEnter={e => {
+                if (!showResult && !selectedAnswers.includes(option.id)) {
+                  e.currentTarget.style.borderColor = '#93c5fd';
+                  e.currentTarget.style.backgroundColor = '#f8faff';
+                }
+              }}
+              onMouseLeave={e => {
+                if (!showResult && !selectedAnswers.includes(option.id)) {
+                  e.currentTarget.style.borderColor = '#e5e7eb';
+                  e.currentTarget.style.backgroundColor = '#ffffff';
+                }
+              }}
+            >
+              <span style={getCircleStyle(option, selectedAnswers, showResult, correctAnswers)}>
+                {displayLabel}
+              </span>
+              <span style={{ fontSize: '15px', color: '#111827', fontWeight: '500', flex: 1 }}>
+                {option.text}
+              </span>
+              {showResult && getResultIcon(option)}
+            </button>
+          );
+        })}
       </div>
 
       {/* Correct answer display */}

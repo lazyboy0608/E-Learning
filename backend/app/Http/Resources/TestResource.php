@@ -26,6 +26,8 @@ class TestResource extends JsonResource
             'access_type' => $this->access_type,
             'scope' => $this->scope,
             'is_active' => $this->is_active,
+            'shuffle_questions' => (bool) $this->shuffle_questions,
+            'shuffle_options' => (bool) $this->shuffle_options,
             'expires_at' => $this->expires_at ? $this->expires_at->toIso8601String() : null,
             'max_attempts' => $this->max_attempts,
             'duration' => $this->duration,

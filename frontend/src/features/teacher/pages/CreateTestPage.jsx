@@ -30,6 +30,8 @@ export function CreateTestPage() {
     class_ids: [],
     access_type: "both",
     is_active: true,
+    shuffle_questions: false,
+    shuffle_options: false,
     expires_at: "",
     max_attempts: "",
     duration: "",
@@ -74,6 +76,8 @@ export function CreateTestPage() {
           class_ids: test.classes?.map(cls => cls.id) || [],
           access_type: test.access_type || "both",
           is_active: test.is_active ?? true,
+          shuffle_questions: Boolean(test.shuffle_questions),
+          shuffle_options: Boolean(test.shuffle_options),
           expires_at: test.expires_at ? test.expires_at.split("T")[0] : "",
           max_attempts: test.max_attempts || "",
           duration: test.duration || "",
@@ -142,6 +146,8 @@ export function CreateTestPage() {
           ? parseInt(formData.max_attempts, 10)
           : null,
         duration: formData.duration ? parseInt(formData.duration, 10) : null,
+        shuffle_questions: Boolean(formData.shuffle_questions),
+        shuffle_options: Boolean(formData.shuffle_options),
       };
 
       if (isEditing) {
@@ -196,7 +202,7 @@ export function CreateTestPage() {
       const newClassIds = prev.class_ids.includes(classId)
         ? prev.class_ids.filter(id => id !== classId)
         : [...prev.class_ids, classId];
-  
+
       return {
         ...prev,
         class_ids: newClassIds,
@@ -711,8 +717,8 @@ export function CreateTestPage() {
               </div>
             </div>
 
-            {/* Checkbox Kích hoạt bài kiểm tra */}
-            <div style={{ paddingTop: "6px" }}>
+            {/* Checkbox Kích hoạt bài kiểm tra & Cấu hình Đảo đề thi */}
+            <div style={{ paddingTop: "6px", display: "flex", flexDirection: "column", gap: "12px" }}>
               <label
                 style={{
                   display: "inline-flex",
@@ -744,6 +750,62 @@ export function CreateTestPage() {
                   Kích hoạt bài kiểm tra hiển thị trên hệ thống
                 </span>
               </label>
+
+              <div style={{ display: "flex", gap: "24px", flexWrap: "wrap", padding: "12px 16px", backgroundColor: "#f8fafc", borderRadius: "8px", border: "1px dashed #cbd5e1" }}>
+                <label
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    cursor: "pointer",
+                    userSelect: "none",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    name="shuffle_questions"
+                    checked={formData.shuffle_questions}
+                    onChange={handleInputChange}
+                    style={{
+                      width: "16px",
+                      height: "16px",
+                      borderRadius: "4px",
+                      cursor: "pointer",
+                      accentColor: "#2563eb",
+                    }}
+                  />
+                  <span style={{ fontSize: "13.5px", fontWeight: "600", color: "#1e293b" }}>
+                    Đảo thứ tự câu hỏi khi làm bài
+                  </span>
+                </label>
+
+                <label
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    cursor: "pointer",
+                    userSelect: "none",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    name="shuffle_options"
+                    checked={formData.shuffle_options}
+                    onChange={handleInputChange}
+                    style={{
+                      width: "16px",
+                      height: "16px",
+                      borderRadius: "4px",
+                      cursor: "pointer",
+                      accentColor: "#2563eb",
+                    }}
+                  />
+                  <span style={{ fontSize: "13.5px", fontWeight: "600", color: "#1e293b" }}>
+                    Đảo thứ tự đáp án lựa chọn (A, B, C, D)
+                  </span>
+                </label>
+              </div>
             </div>
           </div>
         </div>
